@@ -696,6 +696,11 @@
   function computeStreak(){
     let current = 0;
     let cursor = startOfDay(new Date());
+    const todayStats = dayStats(cursor);
+    if(todayStats.scheduled.length > 0 && todayStats.pct < 100){
+      // Today isn't finished yet - don't let that break a streak earned through yesterday.
+      cursor.setDate(cursor.getDate()-1);
+    }
     for(let i=0;i<MAX_STREAK_SCAN;i++){
       const st = dayStats(cursor);
       if(st.scheduled.length===0){ cursor.setDate(cursor.getDate()-1); continue; }
@@ -729,6 +734,14 @@
   function computeHabitStreak(habit){
     let current = 0;
     let cursor = startOfDay(new Date());
+    if(isScheduled(habit, cursor)){
+      const todayKey = fmtDateKey(cursor);
+      const todayChecked = !!(checkins[todayKey] && checkins[todayKey][habit.id]);
+      if(!todayChecked){
+        // Today isn't done yet - don't let that break a streak earned through yesterday.
+        cursor.setDate(cursor.getDate()-1);
+      }
+    }
     for(let i=0;i<MAX_STREAK_SCAN;i++){
       if(!isScheduled(habit, cursor)){ cursor.setDate(cursor.getDate()-1); continue; }
       const key = fmtDateKey(cursor);
