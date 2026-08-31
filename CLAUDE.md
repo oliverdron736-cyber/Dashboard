@@ -159,6 +159,12 @@ permission error even though the client code is correct.
    just `t.text`.** Without that, a task with only photos and no title would silently vanish
    (photos and all) the moment its modal closed. If new task fields get added later, check
    whether they need the same guard.
+5. **Both places a task's images can go away — deleting a single photo (`deleteTaskImage()`) and
+   deleting the whole task (`todoTaskDeleteBtn` handler) — must call Storage `.delete()` for
+   every image, not just clear the array.** Otherwise the Storage bucket accumulates orphaned
+   files with nothing in Firestore pointing to them (silent, unbounded growth against the 5GB
+   free-tier stored limit). If another path can remove a task with images (bulk actions, etc.),
+   it needs the same cleanup.
 
 ## Deployment
 

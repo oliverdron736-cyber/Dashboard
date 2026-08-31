@@ -2499,11 +2499,17 @@
     });
     document.getElementById('todoTaskMoveBtn').addEventListener('click', ()=> openMoveTaskSheet(taskId));
     document.getElementById('todoTaskDeleteBtn').addEventListener('click', ()=>{
+      const removed = todos.find(x => x.id === taskId);
       todos = todos.filter(x => x.id !== taskId);
       expandedTaskIds.delete(taskId);
       saveTodos();
       closeTodoTaskModal();
       renderTodoListContents();
+      if(removed && removed.images && removed.images.length){
+        removed.images.forEach(img=>{
+          firebase.storage().ref(img.path).delete().catch(e=> console.error('Storage cleanup failed', e));
+        });
+      }
     });
   }
 
