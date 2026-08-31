@@ -1,8 +1,13 @@
 # My Habit Tracker — Project Context
 
-**Live URL:** https://oliverdron736-cyber.github.io/Habit-tracker/
-**GitHub Repo:** https://github.com/oliverdron736-cyber/Habit-tracker
+**Live URL:** https://oliverdron736-cyber.github.io/Dashboard/
+**GitHub Repo:** https://github.com/oliverdron736-cyber/Dashboard
 **Firebase Project ID:** habit-tracker-1fec3
+
+The repo was renamed from `Habit-tracker` to `Dashboard` — GitHub redirects the old name for
+git operations, but don't rely on that indefinitely. If any of this session's tooling still
+references the old name, that's expected to keep working via the redirect; a fresh session should
+use `Dashboard` directly.
 
 This file exists so a fresh Claude Code session has the context of everything already built,
 without needing it re-explained. The single most important fact: **`index.html` is the entire
