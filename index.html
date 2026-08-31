@@ -14,6 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
 <script>
   const firebaseConfig = {
@@ -700,6 +701,29 @@
     padding:4px 0 14px 32px;
     border-bottom:1px solid rgba(255,255,255,0.05);
   }
+  .task-image-grid{
+    display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;
+  }
+  .task-image-thumb{
+    position:relative; width:72px; height:72px; flex-shrink:0;
+    border-radius:10px; overflow:hidden; border:1px solid var(--card-border);
+  }
+  .task-image-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .task-image-remove{
+    position:absolute; top:3px; right:3px;
+    width:20px; height:20px; border-radius:50%;
+    background:rgba(0,0,0,0.65); border:none; color:#fff;
+    font-size:11px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .task-image-remove:hover{ background:rgba(0,0,0,0.85); }
+  .task-image-add-btn{
+    width:72px; height:72px; flex-shrink:0;
+    border-radius:10px; border:1px dashed var(--card-border);
+    background:transparent; color:var(--text-dim); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .task-image-add-btn:hover{ border-color:var(--green); color:var(--text); }
 
   /* Notes tab */
   .notes-list-header{
@@ -2250,6 +2274,9 @@
     const subtaskBadge = subtasks.length
       ? `<span class="todo-subtask-badge">${doneSubtasks}/${subtasks.length} subtasks</span>` : '';
     const notesBadge = t.notes && t.notes.trim() ? `<span class="todo-subtask-badge">📝</span>` : '';
+    const imagesBadge = (t.images && t.images.length)
+      ? `<span class="todo-subtask-badge" style="display:inline-flex; align-items:center; gap:3px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1l1.5-2h7l1.5 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>${t.images.length}</span>`
+      : '';
     const subtaskRowsHtml = subtasks.map(s => `
       <div class="subtask-row">
         <button type="button" class="chk ${s.done ? 'checked' : ''}" data-subtask-parent="${t.id}" data-subtask="${s.id}" aria-label="Toggle subtask">${chkIcon(s.done)}</button>
@@ -2263,7 +2290,7 @@
         <button type="button" class="chk ${t.done ? 'checked' : ''}" data-todo="${t.id}" aria-label="Toggle task">${chkIcon(t.done)}</button>
         <div class="todo-main" data-open-task="${t.id}">
           <span class="todo-text ${t.done ? 'done' : ''}">${escapeHtml(t.text)}</span>
-          ${(dueBadge || subtaskBadge || notesBadge) ? `<span class="todo-meta-row">${dueBadge}${subtaskBadge}${notesBadge}</span>` : ''}
+          ${(dueBadge || subtaskBadge || notesBadge || imagesBadge) ? `<span class="todo-meta-row">${dueBadge}${subtaskBadge}${notesBadge}${imagesBadge}</span>` : ''}
         </div>
         ${subtasks.length ? `<button type="button" class="todo-expand-btn" data-expand="${t.id}" aria-label="Show subtasks"><svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" style="transform:rotate(${expanded ? 90 : 0}deg); transition:transform .15s ease;"><path d="M6 3 L15 10 L6 17 Z"/></svg></button>` : ''}
         <button type="button" class="note-menu-btn" data-todo-menu="${t.id}" aria-label="Task options">${DOTS_ICON_SVG}</button>
@@ -2421,10 +2448,15 @@
       </div>
       <div class="milestone-section-label" style="margin-top:14px;">Notes</div>
       <textarea class="notes-body-input" id="todoTaskNotesInput" placeholder="Add notes about this task…" style="min-height:100px; border:1px solid var(--card-border); border-radius:8px; padding:10px;">${escapeHtml(t.notes || '')}</textarea>
+      <div class="milestone-section-label" style="margin-top:14px;">Photos</div>
+      <input type="file" id="todoTaskImageInput" accept="image/*" multiple style="display:none;"/>
+      <div class="task-image-grid" id="todoTaskImagesGrid"></div>
+      <div class="backup-status" id="todoTaskImagesStatus" style="margin-top:8px;"></div>
       <button type="button" class="secondary-btn" id="todoTaskMoveBtn" style="width:100%; margin-top:18px;">Move to list…</button>
       <button type="button" class="remove-btn" id="todoTaskDeleteBtn" style="margin-top:14px;">Delete task</button>
     `;
     document.getElementById('todoTaskModal').style.display = 'flex';
+    renderTaskImages(taskId);
 
     document.getElementById('todoTaskTextInput').addEventListener('input', e=>{
       const live = todos.find(x => x.id === taskId);
@@ -2460,6 +2492,11 @@
       const live = todos.find(x => x.id === taskId);
       if(live){ live.notes = e.target.value; saveTodos(); renderTodoListContents(); }
     }, 250));
+    document.getElementById('todoTaskImageInput').addEventListener('change', e=>{
+      const files = [...e.target.files];
+      e.target.value = '';
+      if(files.length) handleTaskImageFiles(taskId, files);
+    });
     document.getElementById('todoTaskMoveBtn').addEventListener('click', ()=> openMoveTaskSheet(taskId));
     document.getElementById('todoTaskDeleteBtn').addEventListener('click', ()=>{
       todos = todos.filter(x => x.id !== taskId);
@@ -2468,6 +2505,92 @@
       closeTodoTaskModal();
       renderTodoListContents();
     });
+  }
+
+  function renderTaskImages(taskId){
+    const task = todos.find(x => x.id === taskId);
+    const grid = document.getElementById('todoTaskImagesGrid');
+    if(!task || !grid) return;
+    const images = task.images || [];
+    grid.innerHTML = images.map(img => `
+      <div class="task-image-thumb">
+        <img src="${img.url}" alt="" loading="lazy"/>
+        <button type="button" class="task-image-remove" data-remove-image="${img.id}" aria-label="Remove photo">✕</button>
+      </div>
+    `).join('') + `
+      <button type="button" class="task-image-add-btn" id="todoTaskImageAddBtn" aria-label="Add photo">
+        <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="10" y1="3" x2="10" y2="17"/><line x1="3" y1="10" x2="17" y2="10"/></svg>
+      </button>
+    `;
+    grid.querySelectorAll('[data-remove-image]').forEach(btn=>{
+      btn.addEventListener('click', ()=> deleteTaskImage(taskId, btn.getAttribute('data-remove-image')));
+    });
+    const addBtn = document.getElementById('todoTaskImageAddBtn');
+    if(addBtn) addBtn.addEventListener('click', ()=> document.getElementById('todoTaskImageInput').click());
+  }
+
+  function compressImage(file, maxDim, quality){
+    return new Promise((resolve, reject)=>{
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = ()=>{
+        let { width, height } = img;
+        if(width > maxDim || height > maxDim){
+          if(width > height){ height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob(blob=>{
+          URL.revokeObjectURL(url);
+          if(blob) resolve(blob); else reject(new Error('Compression failed'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('Could not load image')); };
+      img.src = url;
+    });
+  }
+
+  async function handleTaskImageFiles(taskId, files){
+    const statusEl = document.getElementById('todoTaskImagesStatus');
+    const task = todos.find(x => x.id === taskId);
+    if(!task) return;
+    if(!task.images) task.images = [];
+    for(const file of files){
+      if(!file.type.startsWith('image/')) continue;
+      if(statusEl){ statusEl.classList.remove('error'); statusEl.textContent = `Uploading ${file.name}…`; }
+      try{
+        const blob = await compressImage(file, 1600, 0.8);
+        const imageId = 'img' + Date.now() + Math.random().toString(36).slice(2, 8);
+        const path = `todoImages/${currentUser.uid}/${taskId}/${imageId}.jpg`;
+        const ref = firebase.storage().ref(path);
+        await ref.put(blob, { contentType: 'image/jpeg' });
+        const url = await ref.getDownloadURL();
+        task.images.push({id: imageId, url, path});
+        saveTodos();
+        renderTaskImages(taskId);
+        renderTodoListContents();
+      }catch(e){
+        console.error('Image upload failed', e);
+        if(statusEl){ statusEl.classList.add('error'); statusEl.textContent = 'Upload failed — check your connection and try again.'; }
+        return;
+      }
+    }
+    if(statusEl){ statusEl.classList.remove('error'); statusEl.textContent = ''; }
+  }
+
+  async function deleteTaskImage(taskId, imageId){
+    const task = todos.find(x => x.id === taskId);
+    if(!task || !task.images) return;
+    const img = task.images.find(i => i.id === imageId);
+    if(!img) return;
+    if(!confirm('Remove this photo?')) return;
+    task.images = task.images.filter(i => i.id !== imageId);
+    saveTodos();
+    renderTaskImages(taskId);
+    renderTodoListContents();
+    try{ await firebase.storage().ref(img.path).delete(); }catch(e){ console.error('Storage cleanup failed', e); }
   }
 
   function openMoveTaskSheet(taskId){
@@ -2494,7 +2617,7 @@
   function closeTodoTaskModal(){
     if(activeTodoTaskId){
       const t = todos.find(x => x.id === activeTodoTaskId);
-      if(t && (!t.text || !t.text.trim())){
+      if(t && (!t.text || !t.text.trim()) && !(t.images && t.images.length)){
         todos = todos.filter(x => x.id !== activeTodoTaskId);
         saveTodos();
       }

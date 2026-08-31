@@ -25,6 +25,9 @@ rebuild.
 - Single-file HTML/CSS/JS PWA, no build tools, no bundler
 - Firebase Firestore (compat SDK v10.14.1 via CDN) for cross-device data sync
 - Firebase Authentication (email/password) for login
+- Firebase Storage (compat SDK v10.14.1 via CDN) for task photo attachments — only the
+  `todoImages/{uid}/...` path is used; bytes live in Storage, only the download URL is stored in
+  Firestore
 - SortableJS v1.15.6 (CDN) for drag-and-drop reordering
 - GitHub Pages for static hosting
 - Deploy = upload `index.html` to repo root; Pages redeploys in ~30–90s
@@ -45,8 +48,11 @@ localStorage. Fields: `habits`, `checkins`, `prefs`, `achievements`, `notes`, `f
 - `checkins`: `{ "YYYY-MM-DD": { habitId: true } }`
 - `notes`: `[{id, title, content (HTML, rich text), updatedAt, folderId, order}]`
 - `folders`: `[{id, name}]` — notes must live in a folder, no "unfiled" concept
-- `todos`: `[{id, listId, text, done, dueDate, dueTime, notes, subtasks:[{id,text,done}], order,
-  createdAt}]`
+- `todos`: `[{id, listId, text, done, dueDate, dueTime, notes, subtasks:[{id,text,done}],
+  images:[{id,url,path}], order, createdAt}]`
+  - `images` holds Firebase Storage download URLs, not the image bytes themselves (see Tech
+    stack). `path` is the Storage object path, kept so the file can be deleted when the image or
+    the task itself is removed. Client-side compresses to a max 1600px-edge JPEG before upload.
 - `todoLists`: `[{id, name}]`
 
 ## Authentication (current: real email/password)
@@ -81,6 +87,21 @@ it.
 **Firebase Console setup required** (not in code, can't be verified by reading the file):
 Authentication > Sign-in method > Email/Password must be enabled.
 
+**Storage security rules required for task photos** (Firebase Console > Storage > Rules — Storage
+must also be enabled on the project if it isn't already):
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /todoImages/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+```
+Without this, uploads/deletes from the To-Do task modal's Photos section will fail with a
+permission error even though the client code is correct.
+
 ## Feature map (roughly chronological)
 
 - **Today tab:** checklist, completion ring (now in the header, top-right, enlarged), streak
@@ -96,10 +117,13 @@ Authentication > Sign-in method > Email/Password must be enabled.
   on both folder cards and note rows (Rename/Delete/Move — replaced old inline text links and
   cross-folder drag targets). Drag-to-reorder within a folder still works.
 - **To-Do tab:** lists (Level 1) > tasks-in-list (Level 2). Encircled "+" opens a task detail
-  modal (create AND edit use the same modal; an empty task is auto-discarded on close). Modal
-  has due date, due time, an "Add subtask" field, and a notes textarea. Inline "▸" dropdown on
-  each task shows existing subtasks for viewing/checking off *only* when subtasks exist — adding
-  one never auto-expands it. Drag-to-reorder works on the active task list.
+  modal (create AND edit use the same modal; an empty task is auto-discarded on close *unless* it
+  has photos attached — see gotcha below). Modal has due date, due time, an "Add subtask" field,
+  a notes textarea, a "Photos" section (upload/remove, see Data model + Tech stack for how
+  images are stored), and "Move to list…" (reassigns `listId`, mirrors notes' "Move to folder…").
+  Inline "▸" dropdown on each task shows existing subtasks for viewing/checking off *only* when
+  subtasks exist — adding one never auto-expands it. Drag-to-reorder works on the active task
+  list.
 - **Settings tab:** Account (shows logged-in email, Log out), Backup & Restore (full JSON export
   covering every field above).
 - **Visual redesign:** frosted-glass theme (blur + translucent panels), black background, blue
@@ -126,6 +150,10 @@ Authentication > Sign-in method > Email/Password must be enabled.
 3. **`scheduleHistory` exists specifically so changing a habit's weekly days doesn't corrupt
    past streaks.** If asked to "let me change which days a habit runs," check whether this
    mechanism already covers it before adding new logic.
+4. **The empty-task auto-discard in `closeTodoTaskModal()` checks `t.images.length` too, not
+   just `t.text`.** Without that, a task with only photos and no title would silently vanish
+   (photos and all) the moment its modal closed. If new task fields get added later, check
+   whether they need the same guard.
 
 ## Deployment
 
