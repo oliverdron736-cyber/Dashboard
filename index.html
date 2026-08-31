@@ -2421,7 +2421,8 @@
       </div>
       <div class="milestone-section-label" style="margin-top:14px;">Notes</div>
       <textarea class="notes-body-input" id="todoTaskNotesInput" placeholder="Add notes about this task…" style="min-height:100px; border:1px solid var(--card-border); border-radius:8px; padding:10px;">${escapeHtml(t.notes || '')}</textarea>
-      <button type="button" class="remove-btn" id="todoTaskDeleteBtn" style="margin-top:18px;">Delete task</button>
+      <button type="button" class="secondary-btn" id="todoTaskMoveBtn" style="width:100%; margin-top:18px;">Move to list…</button>
+      <button type="button" class="remove-btn" id="todoTaskDeleteBtn" style="margin-top:14px;">Delete task</button>
     `;
     document.getElementById('todoTaskModal').style.display = 'flex';
 
@@ -2459,6 +2460,7 @@
       const live = todos.find(x => x.id === taskId);
       if(live){ live.notes = e.target.value; saveTodos(); renderTodoListContents(); }
     }, 250));
+    document.getElementById('todoTaskMoveBtn').addEventListener('click', ()=> openMoveTaskSheet(taskId));
     document.getElementById('todoTaskDeleteBtn').addEventListener('click', ()=>{
       todos = todos.filter(x => x.id !== taskId);
       expandedTaskIds.delete(taskId);
@@ -2466,6 +2468,27 @@
       closeTodoTaskModal();
       renderTodoListContents();
     });
+  }
+
+  function openMoveTaskSheet(taskId){
+    const task = todos.find(x => x.id === taskId);
+    if(!task) return;
+    const options = todoLists
+      .filter(l => l.id !== task.listId)
+      .map(l => ({
+        label: l.name,
+        onClick: ()=>{
+          task.listId = l.id;
+          saveTodos();
+          closeTodoTaskModal();
+          refreshTodoView();
+        }
+      }));
+    if(options.length === 0){
+      alert('Create another list first to move this task there.');
+      return;
+    }
+    openActionSheet('Move to…', options);
   }
 
   function closeTodoTaskModal(){
