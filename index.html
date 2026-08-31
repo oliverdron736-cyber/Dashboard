@@ -1130,7 +1130,27 @@
       <div class="card">
         <div class="card-label">Account</div>
         <div class="hint-text" style="margin-top:0;" id="accountStatusText">Not logged in.</div>
-        <button class="secondary-btn" id="logoutBtn" type="button" style="margin-top:12px; display:none;">Log out</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+          <button class="secondary-btn" id="logoutBtn" type="button" style="display:none;">Log out</button>
+          <button class="secondary-btn" id="changePasswordToggleBtn" type="button" style="display:none;">Change password</button>
+        </div>
+
+        <div id="changePasswordForm" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid var(--card-border);">
+          <div class="password-field-wrap" style="margin-bottom:10px;">
+            <input type="password" id="currentPasswordInput" class="habit-name-input" placeholder="Current password" style="width:100%;" autocomplete="current-password"/>
+            <button type="button" class="password-toggle-btn" id="currentPasswordToggle" aria-label="Show password" tabindex="-1"></button>
+          </div>
+          <div class="password-field-wrap" style="margin-bottom:10px;">
+            <input type="password" id="newPasswordInput" class="habit-name-input" placeholder="New password (6+ characters)" style="width:100%;" autocomplete="new-password" minlength="6"/>
+            <button type="button" class="password-toggle-btn" id="newPasswordToggle" aria-label="Show password" tabindex="-1"></button>
+          </div>
+          <div class="password-field-wrap" style="margin-bottom:0;">
+            <input type="password" id="newPasswordConfirmInput" class="habit-name-input" placeholder="Confirm new password" style="width:100%;" autocomplete="new-password"/>
+            <button type="button" class="password-toggle-btn" id="newPasswordConfirmToggle" aria-label="Show password" tabindex="-1"></button>
+          </div>
+          <button id="savePasswordBtn" class="add-btn" type="button" style="width:100%; margin-top:14px;">Save new password</button>
+          <div class="backup-status" id="changePasswordStatus" style="margin-top:10px;"></div>
+        </div>
       </div>
 
       <div class="card">
@@ -1446,15 +1466,37 @@
   function updateSyncSettingsUI(){
     const statusText = document.getElementById('accountStatusText');
     const logoutBtn = document.getElementById('logoutBtn');
+    const changePasswordToggleBtn = document.getElementById('changePasswordToggleBtn');
     if(!statusText) return;
     if(currentUser){
       const email = localStorage.getItem(EMAIL_KEY) || 'your account';
       statusText.textContent = `Logged in as ${email}.`;
       logoutBtn.style.display = 'inline-block';
+      changePasswordToggleBtn.style.display = 'inline-block';
     } else {
       statusText.textContent = 'Not logged in.';
       logoutBtn.style.display = 'none';
+      changePasswordToggleBtn.style.display = 'none';
+      closeChangePasswordForm();
     }
+  }
+
+  function closeChangePasswordForm(){
+    document.getElementById('changePasswordForm').style.display = 'none';
+    document.getElementById('changePasswordToggleBtn').textContent = 'Change password';
+    document.getElementById('currentPasswordInput').value = '';
+    document.getElementById('newPasswordInput').value = '';
+    document.getElementById('newPasswordConfirmInput').value = '';
+    const statusEl = document.getElementById('changePasswordStatus');
+    statusEl.textContent = '';
+    statusEl.classList.remove('error');
+  }
+
+  async function changePassword(currentPassword, newPassword){
+    const email = currentUser.email;
+    const cred = firebase.auth.EmailAuthProvider.credential(email, currentPassword);
+    await currentUser.reauthenticateWithCredential(cred);
+    await currentUser.updatePassword(newPassword);
   }
 
   async function signUp(email, password){
@@ -3402,6 +3444,60 @@
     if(confirm('Log out of this device? You can log back in anytime with your username and password.')){
       logOut();
     }
+  });
+
+  wirePasswordToggle('currentPasswordInput', 'currentPasswordToggle');
+  wirePasswordToggle('newPasswordInput', 'newPasswordToggle');
+  wirePasswordToggle('newPasswordConfirmInput', 'newPasswordConfirmToggle');
+
+  document.getElementById('changePasswordToggleBtn').addEventListener('click', ()=>{
+    const form = document.getElementById('changePasswordForm');
+    const toggleBtn = document.getElementById('changePasswordToggleBtn');
+    if(form.style.display === 'none'){
+      form.style.display = 'block';
+      toggleBtn.textContent = 'Cancel';
+      document.getElementById('currentPasswordInput').focus();
+    } else {
+      closeChangePasswordForm();
+    }
+  });
+
+  document.getElementById('savePasswordBtn').addEventListener('click', async ()=>{
+    const current = document.getElementById('currentPasswordInput').value;
+    const next = document.getElementById('newPasswordInput').value;
+    const confirmNext = document.getElementById('newPasswordConfirmInput').value;
+    const statusEl = document.getElementById('changePasswordStatus');
+    statusEl.classList.remove('error');
+
+    if(!current){
+      statusEl.classList.add('error');
+      statusEl.textContent = 'Enter your current password.';
+      return;
+    }
+    if(next.length < 6){
+      statusEl.classList.add('error');
+      statusEl.textContent = 'New password must be at least 6 characters.';
+      return;
+    }
+    if(next !== confirmNext){
+      statusEl.classList.add('error');
+      statusEl.textContent = "New passwords don't match.";
+      return;
+    }
+
+    const btn = document.getElementById('savePasswordBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try{
+      await changePassword(current, next);
+      closeChangePasswordForm();
+      alert('Password updated.');
+    }catch(e){
+      statusEl.classList.add('error');
+      statusEl.textContent = friendlyAuthError(e);
+    }
+    btn.disabled = false;
+    btn.textContent = 'Save new password';
   });
 
   // ---------- notes wiring ----------
