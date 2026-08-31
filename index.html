@@ -2458,7 +2458,7 @@
     document.getElementById('todoTaskNotesInput').addEventListener('input', debounce(e=>{
       const live = todos.find(x => x.id === taskId);
       if(live){ live.notes = e.target.value; saveTodos(); renderTodoListContents(); }
-    }, 400));
+    }, 250));
     document.getElementById('todoTaskDeleteBtn').addEventListener('click', ()=>{
       todos = todos.filter(x => x.id !== taskId);
       expandedTaskIds.delete(taskId);
@@ -2804,7 +2804,7 @@
       status.textContent = 'Saved';
       setTimeout(()=>{ if(status.textContent === 'Saved') status.textContent = ''; }, 1500);
     }
-  }, 500);
+  }, 250);
 
   function renderWeekly(){
     const today = startOfDay(new Date());
