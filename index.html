@@ -217,6 +217,10 @@
   @media (max-width: 820px){
     .grid-today{ grid-template-columns:1fr; }
 
+    .header-ring-wrap .ring-wrap{ width:100px; height:100px; }
+    .header-ring-wrap .ring-pct{ font-size:20px; }
+    .header-ring-wrap .ring-fraction{ font-size:11px; }
+
     .tabs{
       position: fixed;
       left: 0; right: 0; bottom: 0;
@@ -806,6 +810,10 @@
   }
   .notes-fmt-btn:hover{ border-color:var(--green); color:var(--text); }
   .notes-fmt-btn.active{ background:var(--green); color:#10150f; border-color:var(--green); }
+  @media (max-width: 820px){
+    /* Clears the fixed bottom tab bar so it doesn't cover the note formatting buttons */
+    .notes-toolbar{ bottom:72px; padding-bottom:12px; }
+  }
   .backup-textarea{
     width:100%; min-height:80px; resize:vertical;
     background:transparent; border:1px solid var(--card-border); border-radius:6px;
