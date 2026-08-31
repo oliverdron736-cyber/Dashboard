@@ -675,7 +675,7 @@
   }
   .todo-list-card:last-child{ border-bottom:none; }
   .todo-list-main{ display:flex; align-items:center; gap:10px; flex:1; min-width:0; cursor:pointer; }
-  .todo-list-icon{ font-size:16px; flex-shrink:0; }
+  .todo-list-icon{ display:inline-flex; align-items:center; color:var(--green); flex-shrink:0; }
   .todo-list-name{
     font-family: var(--font-serif); font-weight:700; font-size:15px; color:var(--text);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
@@ -719,7 +719,7 @@
   .folder-card:last-child{ border-bottom:none; }
   .folder-card:hover{ background: rgba(255,255,255,0.03); }
   .folder-card-main{ display:flex; align-items:center; gap:10px; flex:1; min-width:0; }
-  .folder-card-icon{ font-size:16px; flex-shrink:0; }
+  .folder-card-icon{ display:inline-flex; align-items:center; color:var(--green); flex-shrink:0; }
   .folder-card-name{
     font-family:var(--font-serif); font-weight:700; font-size:15px; color:var(--text);
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
@@ -1160,7 +1160,7 @@
           <div class="card-label" style="margin-bottom:0;">To-Do</div>
           <button class="secondary-btn" id="newTodoListBtn" type="button">+ List</button>
         </div>
-        <div id="todoListsCards"></div>
+        <div class="card"><div id="todoListsCards"></div></div>
       </div>
 
       <!-- Level 2: inside a to-do list -->
@@ -1214,7 +1214,7 @@
           <div class="card-label" style="margin-bottom:0;">Notes</div>
           <button class="secondary-btn" id="newFolderBtn" type="button">+ Folder</button>
         </div>
-        <div id="folderCardsList"></div>
+        <div class="card"><div id="folderCardsList"></div></div>
       </div>
 
       <!-- Level 2: inside a folder -->
@@ -1528,6 +1528,8 @@
   const CIRCLE_ICON_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/></svg>';
   const CIRCLE_CHECK_ICON_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 5-5"/></svg>';
   const FLAME_ICON_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>';
+  const FOLDER_ICON_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5a1 1 0 0 1 1-1h4.5l2 2h8.5a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"/></svg>';
+  const TODO_LIST_ICON_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5l1.5 1.5l2.5 -2.5"/><path d="M3.5 11.5l1.5 1.5l2.5 -2.5"/><path d="M3.5 17.5l1.5 1.5l2.5 -2.5"/><path d="M11 6l9 0"/><path d="M11 12l9 0"/><path d="M11 18l9 0"/></svg>';
   function chkIcon(done){ return done ? CIRCLE_CHECK_ICON_SVG : CIRCLE_ICON_SVG; }
   const EYE_ICON_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
   const EYE_OFF_ICON_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.8 21.8 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a21.8 21.8 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
@@ -2107,7 +2109,7 @@
       row.className = 'todo-list-card';
       row.innerHTML = `
         <div class="todo-list-main" data-list="${l.id}">
-          <span class="todo-list-icon">📋</span>
+          <span class="todo-list-icon">${TODO_LIST_ICON_SVG}</span>
           <span class="todo-list-name">${escapeHtml(l.name)}</span>
         </div>
         <div class="todo-list-right">
@@ -2524,7 +2526,7 @@
       row.className = 'folder-card';
       row.innerHTML = `
         <div class="folder-card-main" data-folder="${f.id}">
-          <span class="folder-card-icon">📁</span>
+          <span class="folder-card-icon">${FOLDER_ICON_SVG}</span>
           <span class="folder-card-name">${escapeHtml(f.name)}</span>
         </div>
         <div class="folder-card-right">
