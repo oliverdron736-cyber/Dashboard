@@ -863,6 +863,9 @@
   .habit-detail-card{
     position:relative;
     max-width:380px; width:100%;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
     background: var(--card-bg); border:1px solid var(--card-border);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
