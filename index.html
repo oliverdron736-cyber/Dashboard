@@ -822,7 +822,9 @@
     background:transparent; border:1px solid var(--card-border); border-radius:6px;
     color:var(--text); font-family:var(--font-mono); font-size:11px;
     padding:10px; margin-top:10px;
+    scrollbar-width: none;
   }
+  .backup-textarea::-webkit-scrollbar{ display:none; }
   .backup-btn-row{ display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; align-items:center; }
   .secondary-btn{
     background:transparent; border:1px solid var(--card-border); color:var(--text-dim);
@@ -866,6 +868,7 @@
     max-height: calc(100vh - 48px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     background: var(--card-bg); border:1px solid var(--card-border);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -873,6 +876,7 @@
     box-shadow: 0 12px 40px rgba(0,0,0,0.5);
     animation: habitDetailPop .15s ease;
   }
+  .habit-detail-card::-webkit-scrollbar{ display:none; }
   @keyframes habitDetailPop{
     from{ opacity:0; transform: scale(0.96); }
     to{ opacity:1; transform: scale(1); }
@@ -905,7 +909,8 @@
   }
   .habit-detail-value.xp{ color: var(--green); }
   .metric-add-row{ display:flex; gap:10px; align-items:center; margin:10px 0 14px; flex-wrap:wrap; }
-  .metric-log-list{ max-height:220px; overflow-y:auto; }
+  .metric-log-list{ max-height:220px; overflow-y:auto; scrollbar-width:none; }
+  .metric-log-list::-webkit-scrollbar{ display:none; }
   .metric-log-row{
     display:flex; align-items:center; justify-content:space-between;
     padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);
