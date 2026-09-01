@@ -768,11 +768,17 @@
     width:40px; height:40px; border-radius:50%;
     background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
     color:#fff; font-size:20px; line-height:1; cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
+    display:none; align-items:center; justify-content:center;
   }
+  .image-lightbox-nav.show{ display:flex; }
   .image-lightbox-nav:hover{ background:rgba(255,255,255,0.2); }
   .image-lightbox-prev{ left:16px; }
   .image-lightbox-next{ right:16px; }
+  @media (max-width: 820px){
+    /* Touch devices swipe between photos directly; the click arrows are
+       desktop/mouse-only affordances and just clutter the image on mobile. */
+    .image-lightbox-nav{ display:none !important; }
+  }
   .image-lightbox-counter{
     position:absolute; bottom:20px; left:50%; transform:translateX(-50%); z-index:1;
     color:#fff; font-family:var(--font-mono); font-size:12px;
@@ -1332,9 +1338,9 @@
 
     <div class="image-lightbox" id="imageLightbox" style="display:none;">
       <button type="button" class="image-lightbox-close" id="imageLightboxClose" aria-label="Close">✕</button>
-      <button type="button" class="image-lightbox-nav image-lightbox-prev" id="imageLightboxPrev" aria-label="Previous photo" style="display:none;">‹</button>
+      <button type="button" class="image-lightbox-nav image-lightbox-prev" id="imageLightboxPrev" aria-label="Previous photo">‹</button>
       <div class="image-lightbox-scroll" id="imageLightboxScroll"></div>
-      <button type="button" class="image-lightbox-nav image-lightbox-next" id="imageLightboxNext" aria-label="Next photo" style="display:none;">›</button>
+      <button type="button" class="image-lightbox-nav image-lightbox-next" id="imageLightboxNext" aria-label="Next photo">›</button>
       <div class="image-lightbox-counter" id="imageLightboxCounter" style="display:none;"></div>
     </div>
 
@@ -2725,8 +2731,8 @@
       <div class="image-lightbox-slide"><img src="${url}" alt=""/></div>
     `).join('');
     const multi = lightboxUrls.length > 1;
-    document.getElementById('imageLightboxPrev').style.display = multi ? 'flex' : 'none';
-    document.getElementById('imageLightboxNext').style.display = multi ? 'flex' : 'none';
+    document.getElementById('imageLightboxPrev').classList.toggle('show', multi);
+    document.getElementById('imageLightboxNext').classList.toggle('show', multi);
     document.getElementById('imageLightboxCounter').style.display = multi ? 'block' : 'none';
     document.getElementById('imageLightbox').style.display = 'flex';
     scrollEl.scrollTo({ left: startIndex * scrollEl.clientWidth, behavior: 'instant' });
