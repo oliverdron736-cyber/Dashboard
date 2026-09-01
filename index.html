@@ -724,6 +724,25 @@
     display:flex; align-items:center; justify-content:center;
   }
   .task-image-add-btn:hover{ border-color:var(--green); color:var(--text); }
+  .task-image-thumb img{ cursor:pointer; }
+  .image-lightbox{
+    position:fixed; inset:0; z-index:2000;
+    background:rgba(0,0,0,0.92);
+    display:flex; align-items:center; justify-content:center;
+    padding:32px;
+  }
+  .image-lightbox img{
+    max-width:100%; max-height:100%; object-fit:contain;
+    border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,0.6);
+  }
+  .image-lightbox-close{
+    position:absolute; top:20px; right:20px;
+    width:36px; height:36px; border-radius:50%;
+    background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+    color:#fff; font-size:16px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .image-lightbox-close:hover{ background:rgba(255,255,255,0.2); }
 
   /* Notes tab */
   .notes-list-header{
@@ -1250,6 +1269,11 @@
         </div>
         <div id="actionSheetBody"></div>
       </div>
+    </div>
+
+    <div class="image-lightbox" id="imageLightbox" style="display:none;">
+      <button type="button" class="image-lightbox-close" id="imageLightboxClose" aria-label="Close">✕</button>
+      <img id="imageLightboxImg" src="" alt=""/>
     </div>
 
     <!-- NOTES TAB -->
@@ -2591,8 +2615,21 @@
     grid.querySelectorAll('[data-remove-image]').forEach(btn=>{
       btn.addEventListener('click', ()=> deleteTaskImage(taskId, btn.getAttribute('data-remove-image')));
     });
+    grid.querySelectorAll('.task-image-thumb img').forEach(imgEl=>{
+      imgEl.addEventListener('click', ()=> openImageLightbox(imgEl.src));
+    });
     const addBtn = document.getElementById('todoTaskImageAddBtn');
     if(addBtn) addBtn.addEventListener('click', ()=> document.getElementById('todoTaskImageInput').click());
+  }
+
+  function openImageLightbox(url){
+    document.getElementById('imageLightboxImg').src = url;
+    document.getElementById('imageLightbox').style.display = 'flex';
+  }
+
+  function closeImageLightbox(){
+    document.getElementById('imageLightbox').style.display = 'none';
+    document.getElementById('imageLightboxImg').src = '';
   }
 
   function compressImage(file, maxDim, quality){
@@ -3742,6 +3779,11 @@
   });
   document.getElementById('actionSheetClose').addEventListener('click', closeActionSheet);
   document.getElementById('actionSheetBackdrop').addEventListener('click', closeActionSheet);
+
+  document.getElementById('imageLightboxClose').addEventListener('click', closeImageLightbox);
+  document.getElementById('imageLightbox').addEventListener('click', (e)=>{
+    if(e.target.id === 'imageLightbox') closeImageLightbox();
+  });
 
   document.getElementById('newFolderBtn').addEventListener('click', ()=>{
     const name = prompt('Folder name:');
