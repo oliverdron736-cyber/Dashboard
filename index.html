@@ -2435,11 +2435,17 @@
       <input class="habit-name-input" id="todoTaskTextInput" value="${escapeHtml(t.text)}" style="width:100%; margin-bottom:14px;"/>
       <div class="habit-detail-row">
         <span class="habit-detail-label">Due date</span>
-        <input type="date" class="date-input" id="todoTaskDueInput" value="${t.dueDate || ''}"/>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="date" class="date-input" id="todoTaskDueInput" value="${t.dueDate || ''}"/>
+          <button type="button" class="quick-link" id="todoTaskDueClearBtn" style="${t.dueDate ? '' : 'display:none;'}">Clear</button>
+        </div>
       </div>
       <div class="habit-detail-row" style="border-bottom:none;">
         <span class="habit-detail-label">Due time</span>
-        <input type="time" class="date-input" id="todoTaskTimeInput" value="${t.dueTime || ''}"/>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <input type="time" class="date-input" id="todoTaskTimeInput" value="${t.dueTime || ''}"/>
+          <button type="button" class="quick-link" id="todoTaskTimeClearBtn" style="${t.dueTime ? '' : 'display:none;'}">Clear</button>
+        </div>
       </div>
       <div class="milestone-section-label" style="margin-top:14px;">Add subtask</div>
       <div class="subtask-add-row" style="margin-top:0;">
@@ -2465,10 +2471,28 @@
     document.getElementById('todoTaskDueInput').addEventListener('change', e=>{
       const live = todos.find(x => x.id === taskId);
       if(live){ live.dueDate = e.target.value || null; saveTodos(); renderTodoListContents(); }
+      document.getElementById('todoTaskDueClearBtn').style.display = e.target.value ? '' : 'none';
     });
     document.getElementById('todoTaskTimeInput').addEventListener('change', e=>{
       const live = todos.find(x => x.id === taskId);
       if(live){ live.dueTime = e.target.value || null; saveTodos(); renderTodoListContents(); }
+      document.getElementById('todoTaskTimeClearBtn').style.display = e.target.value ? '' : 'none';
+    });
+    document.getElementById('todoTaskDueClearBtn').addEventListener('click', ()=>{
+      const live = todos.find(x => x.id === taskId);
+      if(live) live.dueDate = null;
+      document.getElementById('todoTaskDueInput').value = '';
+      document.getElementById('todoTaskDueClearBtn').style.display = 'none';
+      saveTodos();
+      renderTodoListContents();
+    });
+    document.getElementById('todoTaskTimeClearBtn').addEventListener('click', ()=>{
+      const live = todos.find(x => x.id === taskId);
+      if(live) live.dueTime = null;
+      document.getElementById('todoTaskTimeInput').value = '';
+      document.getElementById('todoTaskTimeClearBtn').style.display = 'none';
+      saveTodos();
+      renderTodoListContents();
     });
     function addSubtaskFromModal(){
       const input = document.getElementById('todoTaskSubtaskInput');
