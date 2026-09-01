@@ -937,9 +937,12 @@
   .metric-log-list::-webkit-scrollbar{ display:none; }
   .metric-log-row{
     display:flex; align-items:center; justify-content:space-between;
-    padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);
+    padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.05);
     font-family:var(--font-mono); font-size:12px; gap:10px;
+    cursor:pointer; border-radius:6px; transition: background .12s ease;
   }
+  .metric-log-row:hover{ background: rgba(255,255,255,0.03); }
+  .metric-log-row.editing{ background: rgba(63,163,255,0.1); }
   .metric-log-row:last-child{ border-bottom:none; }
   .metric-log-date{ color:var(--text-dim); white-space:nowrap; }
   .metric-log-value{ color:var(--text); font-weight:600; flex:1; text-align:right; }
@@ -1375,6 +1378,7 @@
   let selectedDate = null;
   let statsExpanded = false;
   let milestoneExpanded = {}; // habitId -> bool
+  let editingMetricLogId = null; // id of the log entry currently being edited in the habit detail modal, or null
 
   const LS_PREFIX = 'habitTracker_v1_'; // legacy local keys, used only as a one-time migration seed
   const SYNC_CODE_KEY = 'habitTrackerSyncCode'; // legacy - only read once, for migration
@@ -1829,6 +1833,7 @@
   function openHabitDetail(habitId){
     const h = habits.find(x => x.id === habitId);
     if(!h) return;
+    editingMetricLogId = null;
     const streak = computeHabitStreak(h);
     document.getElementById('habitDetailName').textContent = h.name;
     document.getElementById('habitDetailBody').innerHTML = `
@@ -1857,6 +1862,7 @@
     });
     if(h.trackMetric){
       const addBtn = document.getElementById('metricAddBtn');
+      const cancelEditBtn = document.getElementById('metricCancelEditBtn');
       if(addBtn){
         addBtn.addEventListener('click', ()=>{
           const timeInput = document.getElementById('metricValueInput');
@@ -1869,15 +1875,44 @@
           const distance = distRaw === '' ? null : parseFloat(distRaw);
           const entryDate = dateInput.value || fmtDateKey(new Date());
           if(!h.logs) h.logs = [];
-          h.logs.push({id: Date.now(), date: entryDate, minutes, distance});
+          if(editingMetricLogId !== null){
+            const log = h.logs.find(l => l.id === editingMetricLogId);
+            if(log){ log.date = entryDate; log.minutes = minutes; log.distance = distance; }
+          } else {
+            h.logs.push({id: Date.now(), date: entryDate, minutes, distance});
+          }
+          editingMetricLogId = null;
           saveHabits();
           openHabitDetail(habitId);
         });
       }
+      if(cancelEditBtn){
+        cancelEditBtn.addEventListener('click', ()=>{
+          editingMetricLogId = null;
+          openHabitDetail(habitId);
+        });
+      }
+      document.querySelectorAll('#habitDetailBody .metric-log-row[data-edit-log]').forEach(row=>{
+        row.addEventListener('click', ()=>{
+          const logId = parseInt(row.getAttribute('data-edit-log'), 10);
+          const log = (h.logs || []).find(l => l.id === logId);
+          if(!log) return;
+          editingMetricLogId = logId;
+          document.getElementById('metricValueInput').value = formatDecimalMinutesAsTime(habitLogMinutes(log));
+          document.getElementById('metricDistanceInput').value = (log.distance === undefined || log.distance === null) ? '' : log.distance;
+          document.getElementById('metricDateInput').value = log.date;
+          document.getElementById('metricAddBtn').textContent = 'Save changes';
+          document.getElementById('metricCancelEditBtn').style.display = '';
+          document.querySelectorAll('#habitDetailBody .metric-log-row').forEach(r => r.classList.toggle('editing', r === row));
+          document.getElementById('metricValueInput').focus();
+        });
+      });
       document.querySelectorAll('#habitDetailBody .metric-log-delete').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
+        btn.addEventListener('click', (e)=>{
+          e.stopPropagation();
           const logId = parseInt(btn.getAttribute('data-log'), 10);
           h.logs = (h.logs || []).filter(l => l.id !== logId);
+          if(editingMetricLogId === logId) editingMetricLogId = null;
           saveHabits();
           openHabitDetail(habitId);
         });
@@ -1900,7 +1935,7 @@
       const distStr = (l.distance !== undefined && l.distance !== null && l.distance !== '')
         ? ` · ${l.distance} ${escapeHtml(distUnit)}` : '';
       return `
-        <div class="metric-log-row">
+        <div class="metric-log-row" data-edit-log="${l.id}">
           <span class="metric-log-date">${l.date}</span>
           <span class="metric-log-value">${timeStr}${distStr}</span>
           <button type="button" class="metric-log-delete" data-log="${l.id}" aria-label="Delete entry">✕</button>
@@ -1923,8 +1958,9 @@
         <input type="number" step="any" class="xp-input" id="metricDistanceInput" placeholder="${escapeHtml(distUnit)}" style="width:90px;"/>
         <input type="date" class="date-input" id="metricDateInput" value="${fmtDateKey(new Date())}" max="${fmtDateKey(new Date())}"/>
         <button type="button" class="add-btn" id="metricAddBtn">Log run</button>
+        <button type="button" class="quick-link" id="metricCancelEditBtn" style="display:none;">Cancel</button>
       </div>
-      <div class="hint-text" style="margin-top:8px;">Time as mm.ss — e.g. 24.06 means 24 min 6 sec. Distance is optional. Change the date to backfill a previous run.</div>
+      <div class="hint-text" style="margin-top:8px;">Time as mm.ss — e.g. 24.06 means 24 min 6 sec. Distance is optional. Change the date to backfill a previous run. Tap an entry below to edit it.</div>
       <div class="metric-log-list">
         ${newestFirst.length ? rows : '<div class="empty-state" style="padding:8px 0;">No entries yet.</div>'}
       </div>
