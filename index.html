@@ -840,7 +840,7 @@
   .notes-body-input li{ margin:4px 0; }
   .notes-body-input b, .notes-body-input strong{ color: var(--text); font-weight:700; }
   .notes-toolbar-pill{
-    position:fixed; right:24px; bottom:24px; z-index:410;
+    position:fixed; left:24px; bottom:24px; z-index:410;
     width:52px; height:52px; border-radius:50%;
     background:var(--card-bg);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
@@ -853,7 +853,7 @@
   .notes-toolbar-pill:hover{ border-color:var(--green); color:var(--green); }
   .notes-toolbar-pill.active{ background:var(--green); color:#10150f; border-color:var(--green); }
   .notes-toolbar-panel{
-    position:fixed; right:24px; bottom:88px; z-index:410;
+    position:fixed; left:24px; bottom:88px; z-index:410;
     background:var(--card-bg);
     backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border:1px solid var(--card-border); border-radius:16px;
@@ -873,8 +873,8 @@
   .notes-fmt-btn.active{ background:var(--green); color:#10150f; border-color:var(--green); }
   @media (max-width: 820px){
     /* Clears the fixed bottom tab bar so it doesn't cover the pill/panel */
-    .notes-toolbar-pill{ bottom:84px; right:20px; }
-    .notes-toolbar-panel{ bottom:148px; right:20px; }
+    .notes-toolbar-pill{ bottom:84px; left:20px; }
+    .notes-toolbar-panel{ bottom:148px; left:20px; }
   }
   .backup-textarea{
     width:100%; min-height:80px; resize:vertical;
