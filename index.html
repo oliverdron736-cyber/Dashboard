@@ -725,15 +725,16 @@
   }
   .task-image-add-btn:hover{ border-color:var(--green); color:var(--text); }
   .task-image-thumb img{ cursor:pointer; }
-  .todo-row-image-grid{
-    display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;
-  }
-  .todo-row-image-thumb{
-    width:56px; height:56px; flex-shrink:0; padding:0;
+  .todo-row-thumb{
+    position:relative; width:36px; height:36px; flex-shrink:0; padding:0;
     border-radius:8px; overflow:hidden; border:1px solid var(--card-border);
     background:none; cursor:pointer;
   }
-  .todo-row-image-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .todo-row-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .todo-row-thumb-count{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.55); color:#fff; font-family:var(--font-mono); font-size:11px;
+  }
   .image-lightbox{
     position:fixed; inset:0; z-index:2000;
     background:rgba(0,0,0,0.92);
@@ -2387,9 +2388,6 @@
     const subtaskBadge = subtasks.length
       ? `<span class="todo-subtask-badge">${doneSubtasks}/${subtasks.length} subtasks</span>` : '';
     const notesBadge = t.notes && t.notes.trim() ? `<span class="todo-subtask-badge">📝</span>` : '';
-    const imagesBadge = (t.images && t.images.length)
-      ? `<span class="todo-subtask-badge" style="display:inline-flex; align-items:center; gap:3px;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1l1.5-2h7l1.5 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>${t.images.length}</span>`
-      : '';
     const subtaskRowsHtml = subtasks.map(s => `
       <div class="subtask-row">
         <button type="button" class="chk ${s.done ? 'checked' : ''}" data-subtask-parent="${t.id}" data-subtask="${s.id}" aria-label="Toggle subtask">${chkIcon(s.done)}</button>
@@ -2398,26 +2396,28 @@
       </div>
     `).join('');
     const images = t.images || [];
-    const imageThumbsHtml = images.length ? `
-        <div class="todo-row-image-grid">
-          ${images.map(img => `<button type="button" class="todo-row-image-thumb" data-todo-image-open="${escapeHtml(img.url)}" aria-label="View photo"><img src="${escapeHtml(img.url)}" alt=""/></button>`).join('')}
-        </div>` : '';
-    const hasExpandable = subtasks.length || images.length;
+    // Shown directly on the row bar (not tucked behind the subtask dropdown) so a
+    // task's photo is visible at a glance; a "+N" overlay covers any extras.
+    const rowThumbHtml = images.length ? `
+        <button type="button" class="todo-row-thumb" data-todo-image-open="${escapeHtml(images[0].url)}" aria-label="View photo">
+          <img src="${escapeHtml(images[0].url)}" alt=""/>
+          ${images.length > 1 ? `<span class="todo-row-thumb-count">+${images.length - 1}</span>` : ''}
+        </button>` : '';
 
     wrapper.innerHTML = `
       <div class="todo-item">
         <button type="button" class="chk ${t.done ? 'checked' : ''}" data-todo="${t.id}" aria-label="Toggle task">${chkIcon(t.done)}</button>
         <div class="todo-main" data-open-task="${t.id}">
           <span class="todo-text ${t.done ? 'done' : ''}">${escapeHtml(t.text)}</span>
-          ${(dueBadge || subtaskBadge || notesBadge || imagesBadge) ? `<span class="todo-meta-row">${dueBadge}${subtaskBadge}${notesBadge}${imagesBadge}</span>` : ''}
+          ${(dueBadge || subtaskBadge || notesBadge) ? `<span class="todo-meta-row">${dueBadge}${subtaskBadge}${notesBadge}</span>` : ''}
         </div>
-        ${hasExpandable ? `<button type="button" class="todo-expand-btn" data-expand="${t.id}" aria-label="Show details"><svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" style="transform:rotate(${expanded ? 90 : 0}deg); transition:transform .15s ease;"><path d="M6 3 L15 10 L6 17 Z"/></svg></button>` : ''}
+        ${rowThumbHtml}
+        ${subtasks.length ? `<button type="button" class="todo-expand-btn" data-expand="${t.id}" aria-label="Show subtasks"><svg viewBox="0 0 20 20" width="12" height="12" fill="currentColor" style="transform:rotate(${expanded ? 90 : 0}deg); transition:transform .15s ease;"><path d="M6 3 L15 10 L6 17 Z"/></svg></button>` : ''}
         <button type="button" class="note-menu-btn" data-todo-menu="${t.id}" aria-label="Task options">${DOTS_ICON_SVG}</button>
       </div>
-      ${hasExpandable ? `
+      ${subtasks.length ? `
       <div class="todo-subtasks-inline" style="display:${expanded ? 'block' : 'none'};">
-        ${subtasks.length ? `<div class="subtask-list">${subtaskRowsHtml}</div>` : ''}
-        ${imageThumbsHtml}
+        <div class="subtask-list">${subtaskRowsHtml}</div>
       </div>` : ''}
     `;
     return wrapper;
