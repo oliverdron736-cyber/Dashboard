@@ -3257,11 +3257,11 @@
     // which past days count for streaks (see scheduleDaysForDate).
     const scheduleSnapshotForSession = {...h.days};
     let historyRecordedThisSession = false;
-    function recordScheduleChangeIfNeeded(){
+    function recordScheduleChangeIfNeeded(live){
       if(historyRecordedThisSession) return;
       historyRecordedThisSession = true;
-      if(!h.scheduleHistory) h.scheduleHistory = [];
-      h.scheduleHistory.push({effectiveUntil: fmtDateKey(new Date()), days: scheduleSnapshotForSession});
+      if(!live.scheduleHistory) live.scheduleHistory = [];
+      live.scheduleHistory.push({effectiveUntil: fmtDateKey(new Date()), days: scheduleSnapshotForSession});
     }
 
     const dayChips = DAY_ORDER.map(d=>
@@ -3306,73 +3306,94 @@
       </div>
     `;
 
+    // Every handler below looks up the habit fresh by id rather than mutating the
+    // `h` captured at build time: the Firestore sync listener reassigns the whole
+    // `habits` array on every write (including this session's own echoed-back
+    // writes), so `h` can go stale mid-edit - mutating it directly would silently
+    // discard the change on the next save (see e.g. the metricUnit input bug this
+    // pattern was fixing). Mirrors the `const live = todos.find(...)` pattern
+    // already used in the to-do task modal.
+    const habitId = h.id;
+    function current(){ return habits.find(x => x.id === habitId); }
+
     row.querySelector('[data-field="name"]').addEventListener('input', e=>{
-      h.name = e.target.value; saveHabits(); renderToday();
+      const live = current(); if(!live) return;
+      live.name = e.target.value; saveHabits(); renderToday();
     });
     row.querySelector('[data-field="xp"]').addEventListener('input', e=>{
-      h.xp = parseInt(e.target.value, 10) || 0; saveHabits(); renderToday();
+      const live = current(); if(!live) return;
+      live.xp = parseInt(e.target.value, 10) || 0; saveHabits(); renderToday();
     });
     row.querySelector('[data-field="active"]').addEventListener('change', e=>{
-      h.active = e.target.checked; saveHabits(); renderToday();
+      const live = current(); if(!live) return;
+      live.active = e.target.checked; saveHabits(); renderToday();
     });
     row.querySelectorAll('.day-chip').forEach(btn=>{
       btn.addEventListener('click', ()=>{
+        const live = current(); if(!live) return;
         const d = btn.getAttribute('data-day');
-        recordScheduleChangeIfNeeded();
-        h.days[d] = !h.days[d];
+        recordScheduleChangeIfNeeded(live);
+        live.days[d] = !live.days[d];
         btn.classList.toggle('on');
         saveHabits(); renderToday();
       });
     });
     row.querySelector('[data-quick="every"]').addEventListener('click', ()=>{
-      recordScheduleChangeIfNeeded();
-      DAY_ORDER.forEach(d=> h.days[d] = true);
-      saveHabits(); refreshHabitEditor(h.id); renderToday();
+      const live = current(); if(!live) return;
+      recordScheduleChangeIfNeeded(live);
+      DAY_ORDER.forEach(d=> live.days[d] = true);
+      saveHabits(); refreshHabitEditor(habitId); renderToday();
     });
     row.querySelector('[data-quick="weekdays"]').addEventListener('click', ()=>{
-      recordScheduleChangeIfNeeded();
-      DAY_ORDER.forEach(d=> h.days[d] = (d!=='sat' && d!=='sun'));
-      saveHabits(); refreshHabitEditor(h.id); renderToday();
+      const live = current(); if(!live) return;
+      recordScheduleChangeIfNeeded(live);
+      DAY_ORDER.forEach(d=> live.days[d] = (d!=='sat' && d!=='sun'));
+      saveHabits(); refreshHabitEditor(habitId); renderToday();
     });
     row.querySelector('[data-remove]').addEventListener('click', ()=>{
-      habits = habits.filter(x=>x.id !== h.id);
+      habits = habits.filter(x=>x.id !== habitId);
       saveHabits(); closeHabitEditModal(); renderHabitManagement(); renderToday();
     });
 
     row.querySelectorAll('.schedule-type-btn').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        h.scheduleType = btn.getAttribute('data-sched');
-        if(h.scheduleType === 'date' && !h.anchorDate){
-          h.anchorDate = fmtDateKey(new Date());
-          h.repeatFrequency = h.repeatFrequency || 'none';
+        const live = current(); if(!live) return;
+        live.scheduleType = btn.getAttribute('data-sched');
+        if(live.scheduleType === 'date' && !live.anchorDate){
+          live.anchorDate = fmtDateKey(new Date());
+          live.repeatFrequency = live.repeatFrequency || 'none';
         }
-        saveHabits(); refreshHabitEditor(h.id); renderToday();
+        saveHabits(); refreshHabitEditor(habitId); renderToday();
       });
     });
     const dateInput = row.querySelector('[data-field="anchorDate"]');
     if(dateInput){
       dateInput.addEventListener('change', e=>{
-        h.anchorDate = e.target.value; saveHabits(); renderToday();
+        const live = current(); if(!live) return;
+        live.anchorDate = e.target.value; saveHabits(); renderToday();
       });
     }
     const repeatSelect = row.querySelector('[data-field="repeatFrequency"]');
     if(repeatSelect){
       repeatSelect.addEventListener('change', e=>{
-        h.repeatFrequency = e.target.value; saveHabits(); renderToday();
+        const live = current(); if(!live) return;
+        live.repeatFrequency = e.target.value; saveHabits(); renderToday();
       });
     }
 
     const trackCheckbox = row.querySelector('[data-field="trackMetric"]');
     const unitWrap = row.querySelector('.habit-metric-unit-wrap');
     trackCheckbox.addEventListener('change', e=>{
-      h.trackMetric = e.target.checked;
-      if(h.trackMetric && !h.logs) h.logs = [];
-      unitWrap.style.display = h.trackMetric ? 'flex' : 'none';
+      const live = current(); if(!live) return;
+      live.trackMetric = e.target.checked;
+      if(live.trackMetric && !live.logs) live.logs = [];
+      unitWrap.style.display = live.trackMetric ? 'flex' : 'none';
       saveHabits();
     });
     const unitInput = row.querySelector('[data-field="metricUnit"]');
     unitInput.addEventListener('input', e=>{
-      h.metricUnit = e.target.value;
+      const live = current(); if(!live) return;
+      live.metricUnit = e.target.value;
       saveHabits();
     });
 

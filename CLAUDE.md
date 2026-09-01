@@ -165,6 +165,20 @@ permission error even though the client code is correct.
    files with nothing in Firestore pointing to them (silent, unbounded growth against the 5GB
    free-tier stored limit). If another path can remove a task with images (bulk actions, etc.),
    it needs the same cleanup.
+6. **Never mutate a captured object reference across an `await`/event gap when a live Firestore
+   listener is attached — always re-look it up from the current array by id first.** The sync
+   listener (`attachSyncListener()`) reassigns the whole `habits`/`todos`/etc. array on *every*
+   write, including this session's own writes echoing back (`docRef.onSnapshot`, typically
+   tens of ms after `saveHabits()`/`saveTodos()`). A handler that closes over an object from an
+   earlier render (e.g. `h` in `buildHabitRow(h)`) and mutates it directly can go stale mid-edit:
+   the next `saveHabits()` pushes the live `habits` array, which no longer contains that object,
+   silently discarding the edit. This was a real bug — typing a habit's metric unit (or name, or
+   toggling a schedule day) could revert to an earlier keystroke's value after the echo landed.
+   Fixed in `buildHabitRow()` by having every handler look up `habits.find(x => x.id === habitId)`
+   fresh before mutating (see the `current()` helper there), mirroring the todo task modal's
+   existing `const live = todos.find(...)` pattern. Any new per-item edit UI (habits, todos,
+   notes, folders, lists) must use this same fresh-lookup pattern, never mutate a closed-over
+   item directly.
 
 ## Deployment
 
