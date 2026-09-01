@@ -3909,11 +3909,33 @@
     document.getElementById('notesBodyInput').addEventListener(evt, updateToolbarActiveStates);
   });
 
+  // Opening a note never focuses the body (only "new note" focuses the title),
+  // so a user who taps the Aa pill and a format button without first tapping
+  // into the text has no selection at all: execCommand silently no-ops and
+  // updateToolbarActiveStates' activeElement guard skips the highlight too,
+  // making toggling look completely broken. Force a real cursor into the body
+  // (end of content if nothing was selected there already) before formatting.
+  function ensureNotesBodyFocused(){
+    const body = document.getElementById('notesBodyInput');
+    const sel = window.getSelection();
+    const hasSelectionInBody = sel.rangeCount > 0 && body.contains(sel.getRangeAt(0).startContainer);
+    if(document.activeElement === body && hasSelectionInBody) return;
+    body.focus();
+    if(!hasSelectionInBody){
+      const range = document.createRange();
+      range.selectNodeContents(body);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
+
   document.querySelectorAll('.notes-fmt-btn').forEach(btn=>{
     // mousedown (not click) fires before the contenteditable loses focus/selection,
     // so execCommand applies to whatever text is actually selected.
     btn.addEventListener('mousedown', (e)=> e.preventDefault());
     btn.addEventListener('click', ()=>{
+      ensureNotesBodyFocused();
       const cmd = btn.getAttribute('data-cmd');
       if(cmd === 'createLink'){
         const url = prompt('Link URL:');
@@ -3942,6 +3964,10 @@
     const opening = panel.style.display === 'none';
     panel.style.display = opening ? 'block' : 'none';
     pill.classList.toggle('active', opening);
+    if(opening){
+      ensureNotesBodyFocused();
+      updateToolbarActiveStates();
+    }
   });
   document.addEventListener('click', (e)=>{
     const panel = document.getElementById('notesToolbarPanel');
