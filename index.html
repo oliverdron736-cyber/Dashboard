@@ -1392,10 +1392,9 @@
   function updateHeaderTitle(tab){
     const el = document.getElementById('appTitle');
     if(!el) return;
-    el.textContent = window.innerWidth <= 820 ? (TAB_TITLES[tab] || 'Today') : 'Dashboard';
+    el.textContent = TAB_TITLES[tab] || 'Today';
   }
   updateHeaderTitle(currentTab);
-  window.addEventListener('resize', ()=> updateHeaderTitle(currentTab));
   let viewMonth = new Date();
   viewMonth.setDate(1);
   viewMonth.setHours(0,0,0,0);
