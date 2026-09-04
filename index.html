@@ -1942,7 +1942,8 @@
   }
 
   // ---------- render: today ----------
-  function openHabitDetail(habitId){
+  function openHabitDetail(habitId, opts){
+    opts = opts || {};
     const h = habits.find(x => x.id === habitId);
     if(!h) return;
     editingMetricLogId = null;
@@ -1973,6 +1974,14 @@
       });
     });
     if(h.trackMetric){
+      if(opts.logDate){
+        const dateInput = document.getElementById('metricDateInput');
+        if(dateInput) dateInput.value = opts.logDate;
+      }
+      if(opts.focusMetricLog){
+        const valueInput = document.getElementById('metricValueInput');
+        if(valueInput) valueInput.focus();
+      }
       const addBtn = document.getElementById('metricAddBtn');
       const cancelEditBtn = document.getElementById('metricCancelEditBtn');
       if(addBtn){
@@ -2193,6 +2202,11 @@
     if(habit) syncHabitMilestones(habit);
     renderToday();
     if(currentTab === 'monthly') renderMonthly();
+    // Ticking a metric-tracked habit on (not off) opens straight to its log
+    // entry, ready to type in the time - the whole point of tracking it.
+    if(nowChecked && habit && habit.trackMetric){
+      openHabitDetail(habitId, {focusMetricLog: true, logDate: dateKey});
+    }
   }
 
   // Walks a habit's entire check-in history and returns every milestone value
