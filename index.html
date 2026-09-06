@@ -2199,7 +2199,7 @@
     checkins[dateKey][habitId] = nowChecked;
     saveCheckins();
     const habit = habits.find(h => h.id === habitId);
-    if(habit) syncHabitMilestones(habit);
+    if(habit) syncHabitMilestones(habit, {dateKey});
     renderToday();
     if(currentTab === 'monthly') renderMonthly();
     // Ticking a metric-tracked habit on (not off) opens straight to its log
@@ -2239,9 +2239,11 @@
   // Reconciles this habit's recorded achievements with what its check-in history
   // actually supports right now: adds milestones newly crossed, and removes any
   // that no longer hold (e.g. an accidental check was undone). Pass {silent:true}
-  // to skip the celebration toast (used for startup/restore backfills).
+  // to skip the celebration toast (used for startup/restore backfills), and
+  // {dateKey} for the date that was actually toggled (defaults to today).
   function syncHabitMilestones(habit, opts){
     opts = opts || {};
+    const dateKey = opts.dateKey || fmtDateKey(new Date());
     const crossings = scanHabitMilestoneCrossings(habit);
     const crossingMilestones = new Set(crossings.map(c => c.milestone));
 
@@ -2262,8 +2264,14 @@
     if(newlyAdded.length || removed){
       saveAchievements();
     }
-    if(newlyAdded.length && !opts.silent){
-      showMilestoneToast(habit.name, Math.max(...newlyAdded));
+    // The lifetime wall (achievements) only records each milestone value once
+    // ever, so a restarted streak re-crossing "1 day" wouldn't be "newlyAdded"
+    // and would silently skip the toast. The celebration should fire any time
+    // the streak crosses a milestone on the date just toggled, whether or not
+    // that milestone was already unlocked on the wall from an earlier streak.
+    const crossedOnThisDate = crossings.filter(c => c.date === dateKey);
+    if(crossedOnThisDate.length && !opts.silent){
+      showMilestoneToast(habit.name, Math.max(...crossedOnThisDate.map(c => c.milestone)));
     }
     return newlyAdded;
   }
