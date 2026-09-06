@@ -118,9 +118,13 @@ cover the other.
 
 ## Feature map (roughly chronological)
 
-- **Today tab:** checklist, completion ring (now in the header, top-right, enlarged), streak
-  badge (flame icon, under the title), collapsible "weekly & monthly stats," collapsible
-  "Manage habits" (moved here from Settings — lazy-renders only when expanded, see gotcha below)
+- **Today tab:** checklist, a "Progress" card with three always-visible rings side by side (Day /
+  Week / Month — `todayRingProgress`/`weeklyRingProgress`/`monthlyScoreRingProgress`), collapsible
+  "Manage habits" (moved here from Settings — lazy-renders only when expanded, see gotcha below).
+  The header itself is just the title and date — no overall streak badge or ring (removed; the
+  per-habit flame+streak next to each checklist row is separate and still there). There's no
+  combined "how many days in a row was I 100%" streak concept anymore, only each individual
+  habit's own streak (`computeHabitStreak()`).
 - **Monthly tab:** calendar grid, day-detail panel, color-coded completion (green/amber/red are
   meaningful status colors — not the theme's accent color, deliberately untouched by the
   redesign)
