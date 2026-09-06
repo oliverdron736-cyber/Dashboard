@@ -30,9 +30,9 @@ rebuild.
 - Single-file HTML/CSS/JS PWA, no build tools, no bundler
 - Firebase Firestore (compat SDK v10.14.1 via CDN) for cross-device data sync
 - Firebase Authentication (email/password) for login
-- Firebase Storage (compat SDK v10.14.1 via CDN) for task photo attachments — only the
-  `todoImages/{uid}/...` path is used; bytes live in Storage, only the download URL is stored in
-  Firestore
+- Firebase Storage (compat SDK v10.14.1 via CDN) for photo attachments — `todoImages/{uid}/...`
+  for task photos, `noteImages/{uid}/{noteId}/...` for photos embedded in notes; bytes live in
+  Storage, only the download URL is stored in Firestore
 - SortableJS v1.15.6 (CDN) for drag-and-drop reordering
 - GitHub Pages for static hosting
 - Deploy = upload `index.html` to repo root; Pages redeploys in ~30–90s
@@ -52,6 +52,10 @@ localStorage. Fields: `habits`, `checkins`, `prefs`, `achievements`, `notes`, `f
     `scheduleDaysForDate()` and `isScheduled()`.
 - `checkins`: `{ "YYYY-MM-DD": { habitId: true } }`
 - `notes`: `[{id, title, content (HTML, rich text), updatedAt, folderId, order}]`
+  - Photos inside a note live as plain `<img src="...">` tags in `content` pointing at
+    `noteImages/{uid}/{noteId}/...` Storage download URLs — unlike `todos.images`, there's no
+    separate structured array, since a note's photos are just part of its free-form HTML. See the
+    gotcha below for how their Storage cleanup works without one.
 - `folders`: `[{id, name}]` — notes must live in a folder, no "unfiled" concept
 - `todos`: `[{id, listId, text, done, dueDate, dueTime, notes, subtasks:[{id,text,done}],
   images:[{id,url,path}], order, createdAt}]`
@@ -101,11 +105,16 @@ service firebase.storage {
     match /todoImages/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    match /noteImages/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
   }
 }
 ```
-Without this, uploads/deletes from the To-Do task modal's Photos section will fail with a
-permission error even though the client code is correct.
+Without this, uploads/deletes from the To-Do task modal's Photos section, or from the notes
+formatting toolbar's photo button, will fail with a permission error even though the client code
+is correct. The `noteImages` rule is required separately from `todoImages` — adding one doesn't
+cover the other.
 
 ## Feature map (roughly chronological)
 
@@ -116,11 +125,18 @@ permission error even though the client code is correct.
   meaningful status colors — not the theme's accent color, deliberately untouched by the
   redesign)
 - **Notes tab:** folders (Level 1) > notes-in-folder (Level 2) > editor (Level 3). Rich text via
-  a `contenteditable` div (bold/italic/bullets/numbers), a fixed bottom formatting toolbar with
-  live active-state highlighting, paste sanitization (preserves structure from apps like Apple
-  Notes, strips clashing fonts/colors), and a backspace fix for exiting a list cleanly. "⋮" menu
-  on both folder cards and note rows (Rename/Delete/Move — replaced old inline text links and
-  cross-folder drag targets). Drag-to-reorder within a folder still works.
+  a `contenteditable` div. Formatting lives behind a floating "Aa" pill (bottom-left in the
+  editor) that expands into a single horizontal row of tools to its right: Bold, Italic,
+  Underline, Bullet list, Numbered list, a text-size cycler (steps through 4 fixed sizes on each
+  tap via `execCommand('fontSize')` converted to real px, rather than trying to detect the
+  current selection's size), and a photo button (uploads to `noteImages/`, inserts an `<img>` at
+  the cursor — see Data model + gotcha below for cleanup). The panel repositions itself to sit
+  just above the on-screen keyboard via the `visualViewport` API (see
+  `updateNotesToolbarKeyboardOffset()`), falling back to its default position above the mobile
+  tab bar when no keyboard is showing. Also: paste sanitization (preserves structure from apps
+  like Apple Notes, strips clashing fonts/colors), and a backspace fix for exiting a list cleanly.
+  "⋮" menu on both folder cards and note rows (Rename/Delete/Move — replaced old inline text links
+  and cross-folder drag targets). Drag-to-reorder within a folder still works.
 - **To-Do tab:** lists (Level 1) > tasks-in-list (Level 2). Encircled "+" opens a task detail
   modal (create AND edit use the same modal; an empty task is auto-discarded on close *unless* it
   has photos attached — see gotcha below). Modal has due date, due time, an "Add subtask" field,
@@ -179,6 +195,14 @@ permission error even though the client code is correct.
    existing `const live = todos.find(...)` pattern. Any new per-item edit UI (habits, todos,
    notes, folders, lists) must use this same fresh-lookup pattern, never mutate a closed-over
    item directly.
+7. **Note photos have no dedicated "remove" button to hook Storage cleanup into** — they're plain
+   `<img>` tags inside free-form `contenteditable` HTML, so a photo can disappear via any ordinary
+   edit (backspace, select-and-delete), not just a discrete action like `deleteTaskImage()`. Fixed
+   by diffing the note-image URLs present before vs. after every save
+   (`debouncedSaveActiveNote`, using `extractNoteImageUrls()`/`activeNoteImageUrls`) and deleting
+   whatever dropped out, plus a separate sweep on whole-note deletion. If notes ever gain another
+   way to bulk-replace `content` (an "undo" feature, a template picker, etc.), that path needs the
+   same diff-and-delete treatment or photos will silently orphan in Storage.
 
 ## Deployment
 
