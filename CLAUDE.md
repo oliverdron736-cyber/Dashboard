@@ -131,10 +131,15 @@ cover the other.
 - **Notes tab:** folders (Level 1) > notes-in-folder (Level 2) > editor (Level 3). Rich text via
   a `contenteditable` div. Formatting lives behind a floating "Aa" pill (bottom-left in the
   editor) that expands into a single horizontal row of tools to its right: Bold, Italic,
-  Underline, Bullet list, Numbered list, a text-size cycler (steps through 4 fixed sizes on each
-  tap via `execCommand('fontSize')` converted to real px, rather than trying to detect the
-  current selection's size), and a photo button (uploads to `noteImages/`, inserts an `<img>` at
-  the cursor — see Data model + gotcha below for cleanup). The panel repositions itself to sit
+  Underline, Bullet list, Numbered list, a text-size button (opens a small numeric popup —
+  `noteFontSizeModal` — rather than a fixed set of presets; applies via `execCommand('fontSize')`
+  converted to a real px value, since that command only supports the legacy 1-7 scale), and a
+  photo button (uploads to `noteImages/`, inserts an `<img>` at the cursor — see Data model +
+  gotcha below for cleanup). The popup renders outside the toolbar panel in the DOM, so the
+  document-level "click outside closes the toolbar" handler explicitly exempts it — otherwise
+  hitting the popup's own Apply button would close the whole toolbar out from under it. The panel
+  itself is intentionally tight (small gaps, ~31px buttons) so the whole row fits without
+  scrolling on a narrow phone; it repositions itself to sit
   just above the on-screen keyboard via the `visualViewport` API (see
   `updateNotesToolbarKeyboardOffset()`), falling back to its default position above the mobile
   tab bar when no keyboard is showing. Also: paste sanitization (preserves structure from apps
