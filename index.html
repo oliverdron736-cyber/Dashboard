@@ -3675,6 +3675,12 @@
     todos = await loadLegacyLocal('todos', []);
     todoLists = await loadLegacyLocal('todoLists', []);
 
+    // Explicit rather than relying on the SDK's default, so persistence never
+    // silently degrades to session-only (e.g. if IndexedDB is unavailable in
+    // some browser context) without anyone noticing - this is what keeps a
+    // signed-in session across closing the browser/app and reopening it.
+    try{ await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){ console.error('setPersistence failed', e); }
+
     firebase.auth().onAuthStateChanged(async (user)=>{
       if(user){
         currentUser = user;
