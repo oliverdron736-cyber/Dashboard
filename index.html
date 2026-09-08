@@ -480,6 +480,16 @@
     font-size:14px; font-family:var(--font-sans);
   }
   .habit-name-input::placeholder{ color: var(--muted); }
+  /* Detects a genuine browser autofill (Face ID/Touch ID unlocking a saved
+     Keychain credential, or any password-manager fill) on the login fields,
+     via the standard trick of watching for this animation, since there's no
+     real cross-browser "autofilled" event. Purely a detection hook - the
+     animation itself is imperceptible. See loginEmail/loginPassword's
+     'animationstart' listeners. */
+  @keyframes onNoteAuthAutofill { from {} to {} }
+  #loginEmail:-webkit-autofill, #loginPassword:-webkit-autofill{
+    animation-name: onNoteAuthAutofill; animation-duration: 0.001s;
+  }
   .xp-input{
     width:56px;
     background:transparent; border:1px solid var(--card-border);
@@ -893,16 +903,32 @@
   .notes-fmt-btn:hover{ color:var(--text); }
   .notes-fmt-btn.active{ background:var(--green); color:#10150f; border-color:var(--green); }
   .notes-fmt-divider{ width:1px; height:18px; background:var(--card-border); flex-shrink:0; margin:0 1px; }
+  .notes-fmt-size-wrap{
+    display:flex; align-items:stretch; flex-shrink:0; height:31px;
+    border:1px solid var(--card-border); border-radius:6px; overflow:hidden;
+  }
+  .notes-fmt-size-wrap:focus-within{ border-color:var(--green); }
   .notes-fmt-size-input{
-    width:36px; height:31px; flex-shrink:0; padding:0;
-    background:transparent; border:1px solid var(--card-border); border-radius:6px;
+    width:30px; height:100%; flex-shrink:0; padding:0;
+    background:transparent; border:none;
     color:var(--text); font-family:var(--font-mono); font-size:12px; text-align:center;
     -webkit-tap-highlight-color: transparent; outline:none;
   }
-  .notes-fmt-size-input:focus{ border-color:var(--green); }
   .notes-fmt-size-input::-webkit-outer-spin-button,
   .notes-fmt-size-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
   .notes-fmt-size-input[type=number]{ -moz-appearance:textfield; }
+  .notes-fmt-size-steppers{
+    display:flex; flex-direction:column; flex-shrink:0;
+    border-left:1px solid var(--card-border);
+  }
+  .notes-fmt-size-step{
+    flex:1; width:15px; padding:0;
+    background:transparent; border:none; color:var(--text-dim); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color: transparent; outline:none;
+  }
+  .notes-fmt-size-step:first-child{ border-bottom:1px solid var(--card-border); }
+  .notes-fmt-size-step:hover, .notes-fmt-size-step:active{ color:var(--text); background:rgba(255,255,255,0.06); }
   @media (max-width: 820px){
     /* Clears the fixed bottom tab bar so it doesn't cover the pill/panel;
        JS overrides both to sit just above the keyboard once it's open. */
@@ -1036,13 +1062,15 @@
       </div>
 
       <div id="authLoginPane">
-        <input type="email" id="loginEmail" class="habit-name-input" placeholder="Email address" style="width:100%; margin-bottom:10px;" autocomplete="email"/>
-        <div class="password-field-wrap" style="margin-bottom:0;">
-          <input type="password" id="loginPassword" class="habit-name-input" placeholder="Password" style="width:100%;" autocomplete="current-password"/>
-          <button type="button" class="password-toggle-btn" id="loginPasswordToggle" aria-label="Show password" tabindex="-1"></button>
-        </div>
-        <button id="loginBtn" class="add-btn" type="button" style="width:100%; margin-top:14px;">Log In</button>
-        <button id="forgotPasswordBtn" class="quick-link" type="button" style="margin-top:12px; background:none; border:none;">Forgot password?</button>
+        <form id="loginForm">
+          <input type="email" id="loginEmail" class="habit-name-input" placeholder="Email address" style="width:100%; margin-bottom:10px;" autocomplete="email"/>
+          <div class="password-field-wrap" style="margin-bottom:0;">
+            <input type="password" id="loginPassword" class="habit-name-input" placeholder="Password" style="width:100%;" autocomplete="current-password"/>
+            <button type="button" class="password-toggle-btn" id="loginPasswordToggle" aria-label="Show password" tabindex="-1"></button>
+          </div>
+          <button id="loginBtn" class="add-btn" type="submit" style="width:100%; margin-top:14px;">Log In</button>
+          <button id="forgotPasswordBtn" class="quick-link" type="button" style="margin-top:12px; background:none; border:none;">Forgot password?</button>
+        </form>
       </div>
 
       <div id="authSignupPane" style="display:none;">
@@ -1377,7 +1405,17 @@
               </svg>
             </button>
             <div class="notes-fmt-divider"></div>
-            <input type="number" inputmode="numeric" class="notes-fmt-size-input" id="notesFmtSizeInput" title="Text size (px)" value="15" min="6" max="96"/>
+            <div class="notes-fmt-size-wrap">
+              <input type="number" inputmode="numeric" class="notes-fmt-size-input" id="notesFmtSizeInput" title="Text size (px)" value="15" min="6" max="96"/>
+              <div class="notes-fmt-size-steppers">
+                <button type="button" class="notes-fmt-size-step" id="notesFmtSizeUp" aria-label="Increase text size">
+                  <svg viewBox="0 0 10 6" width="8" height="5" fill="currentColor"><path d="M5 0L10 6H0Z"/></svg>
+                </button>
+                <button type="button" class="notes-fmt-size-step" id="notesFmtSizeDown" aria-label="Decrease text size">
+                  <svg viewBox="0 0 10 6" width="8" height="5" fill="currentColor"><path d="M5 6L0 0H10Z"/></svg>
+                </button>
+              </div>
+            </div>
             <div class="notes-fmt-divider"></div>
             <button type="button" class="notes-fmt-btn" id="notesPhotoBtn" title="Add photo">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1l1.5-2h7l1.5 2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
@@ -3741,7 +3779,11 @@
     });
   });
 
-  document.getElementById('loginBtn').addEventListener('click', async ()=>{
+  // A real <form> (rather than a bare button) both lets Enter/"Go" on the
+  // keyboard submit, and makes Safari more willing to treat this as a login
+  // form worth offering AutoFill/Face ID suggestions for in the first place.
+  document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+    e.preventDefault();
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
     const errEl = document.getElementById('authGateError');
@@ -3755,6 +3797,22 @@
       errEl.textContent = friendlyAuthError(e);
     }
     btn.disabled = false; btn.textContent = 'Log In';
+  });
+
+  // Once Face ID/Touch ID unlocks a saved credential (or any password
+  // manager fills the fields), submit automatically instead of making the
+  // user tap "Log In" again - the whole point of unlocking with your face.
+  // onNoteAuthAutofill only fires on a genuine browser autofill (see the
+  // CSS keyframes above), never on manual typing, so this can't misfire
+  // from someone just typing their email and password normally.
+  ['loginEmail', 'loginPassword'].forEach(id=>{
+    document.getElementById(id).addEventListener('animationstart', (e)=>{
+      if(e.animationName !== 'onNoteAuthAutofill') return;
+      if(document.getElementById('authLoginPane').style.display === 'none') return;
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      if(email.trim() && password) document.getElementById('loginForm').requestSubmit();
+    });
   });
 
   document.getElementById('signupBtn').addEventListener('click', async ()=>{
@@ -3989,14 +4047,17 @@
 
   const notesFmtSizeInput = document.getElementById('notesFmtSizeInput');
   let savedNoteFontSizeRange = null;
-  // mousedown (not focus) fires before the contenteditable's selection
+  // mousedown (not focus/click) fires before the contenteditable's selection
   // collapses, same reasoning as the format buttons' own mousedown guard.
-  notesFmtSizeInput.addEventListener('mousedown', ()=>{
+  // Shared by the number input and both stepper buttons, since any of them
+  // can be the thing that steals focus away from the note body first.
+  function saveNoteFontSizeSelection(){
     const sel = window.getSelection();
     const body = document.getElementById('notesBodyInput');
     savedNoteFontSizeRange = (sel.rangeCount && body.contains(sel.getRangeAt(0).startContainer))
       ? sel.getRangeAt(0).cloneRange() : null;
-  });
+  }
+  notesFmtSizeInput.addEventListener('mousedown', saveNoteFontSizeSelection);
   function applyNoteFontSizeFromInput(){
     const raw = parseInt(notesFmtSizeInput.value, 10);
     const px = Math.min(96, Math.max(6, isNaN(raw) ? 15 : raw));
@@ -4016,6 +4077,18 @@
   notesFmtSizeInput.addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){ e.preventDefault(); notesFmtSizeInput.blur(); }
   });
+
+  function stepNoteFontSize(delta){
+    const current = parseInt(notesFmtSizeInput.value, 10) || 15;
+    notesFmtSizeInput.value = Math.min(96, Math.max(6, current + delta));
+    applyNoteFontSizeFromInput();
+  }
+  const notesFmtSizeUp = document.getElementById('notesFmtSizeUp');
+  const notesFmtSizeDown = document.getElementById('notesFmtSizeDown');
+  notesFmtSizeUp.addEventListener('mousedown', (e)=>{ e.preventDefault(); saveNoteFontSizeSelection(); });
+  notesFmtSizeUp.addEventListener('click', ()=> stepNoteFontSize(1));
+  notesFmtSizeDown.addEventListener('mousedown', (e)=>{ e.preventDefault(); saveNoteFontSizeSelection(); });
+  notesFmtSizeDown.addEventListener('click', ()=> stepNoteFontSize(-1));
 
   // Photos are uploaded to Firebase Storage (same pattern as task photos)
   // and inserted as an <img src="..."> pointing at the download URL, rather

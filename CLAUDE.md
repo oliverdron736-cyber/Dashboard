@@ -74,6 +74,28 @@ Went through two iterations — worth knowing so nobody "fixes" it back to somet
    (`sendPasswordResetEmail`) that deliberately shows the same message whether or not the email
    exists (no account enumeration).
 
+`init()` explicitly calls `firebase.auth().setPersistence(Auth.Persistence.LOCAL)` before
+attaching the auth-state listener, rather than relying on the SDK's default fallback chain — this
+is what keeps a session across closing/reopening the browser or app. It's wrapped in try/catch so
+a rejection (rare, but possible if IndexedDB is genuinely unavailable) can't block app init. Note
+this only controls what the app itself requests; the browser/OS can still clear storage
+independently (Safari's ITP caps un-visited "web content" storage at ~7 days — an installed
+home-screen PWA, which the manifest already supports via `display:standalone`, gets a separate,
+more durable storage container than a regular Safari tab).
+
+The login form (`#loginForm`, wrapping `loginEmail`/`loginPassword`/`loginBtn`) is a real
+`<form>` with a `type="submit"` button — not just a button with a click handler — for two
+reasons: it lets Enter/"Go" on the keyboard submit, and it makes Safari more willing to offer
+AutoFill/Face ID/Touch ID suggestions for it at all (bare buttons are treated less reliably as
+"real" login forms). On top of that, `loginEmail`/`loginPassword` have a CSS
+`:-webkit-autofill` + imperceptible-animation trick (`onNoteAuthAutofill` in the `<style>` block)
+that fires an `animationstart` event specifically when the browser genuinely autofills a field —
+including a Face ID/Touch ID-unlocked Keychain credential — and never on manual typing. When that
+fires and *both* fields already hold a value, the form submits itself automatically, so unlocking
+with Face ID logs you in without an extra tap on "Log In". This is the standard cross-browser way
+to detect autofill, since there's no native "autofilled" DOM event. Only the login form got this
+treatment (not signup) since that's the flow this exists for.
+
 **Firestore security rules currently required (already set up, but here for reference):**
 ```
 rules_version = '2';
@@ -133,8 +155,10 @@ cover the other.
   editor) that expands into a single horizontal row of tools to its right: Bold, Italic,
   Underline, Bullet list, Numbered list, a text-size number box (`notesFmtSizeInput` — Word-style:
   an actual `<input type="number">` sitting inline in the toolbar row itself, not a popup or a
-  fixed set of presets; applies on Enter or on blur, via `execCommand('fontSize')` converted to a
-  real px value since that command only supports the legacy 1-7 scale), and a photo button
+  fixed set of presets, flanked by a tiny stacked up/down stepper (`notesFmtSizeUp`/
+  `notesFmtSizeDown`, ±1px per click) inside the same bordered `.notes-fmt-size-wrap`; applies on
+  Enter, on blur, or on a stepper click, via `execCommand('fontSize')` converted to a real px
+  value since that command only supports the legacy 1-7 scale), and a photo button
   (uploads to `noteImages/`, inserts an `<img>` at the cursor — see Data model + gotcha below for
   cleanup). Since it's a real element inside the toolbar panel (not a separate modal), the
   document-level "click outside closes the toolbar" handler needs no special-casing for it — that
