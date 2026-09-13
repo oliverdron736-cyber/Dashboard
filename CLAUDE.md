@@ -240,6 +240,18 @@ cover the other.
    whatever dropped out, plus a separate sweep on whole-note deletion. If notes ever gain another
    way to bulk-replace `content` (an "undo" feature, a template picker, etc.), that path needs the
    same diff-and-delete treatment or photos will silently orphan in Storage.
+8. **There are two intentionally different "milestone" concepts per habit — don't conflate them.**
+   `achievements` is a lifetime record ("this habit reached a 10-day streak at some point"), used
+   by the habit detail modal's "Milestones" trophy wall (`buildMilestoneWallHtml`) and the
+   celebration toast (`syncHabitMilestones`) — both deliberately never reset, so re-crossing a
+   milestone after a broken streak still toasts, and a wall badge earned months ago stays lit
+   forever. `highestAchievedMilestone(currentStreak)` is different on purpose: it's the mini badge
+   next to each habit in the Today checklist, and it tracks the *current* unbroken streak only
+   (computed live from `computeHabitStreak(h).current`, not the `achievements` array) — it goes
+   away the moment a streak breaks and climbs back up as a new one re-crosses each milestone. A
+   habit with a lifetime-best 10-day streak that's currently broken correctly shows the "10" badge
+   on its wall but no mini badge at all in the checklist. If asked to change how milestones behave,
+   check which of these two the request is actually about before touching either.
 
 ## Deployment
 

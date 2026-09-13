@@ -1836,10 +1836,17 @@
     return [...list].sort((a,b) => b.xp - a.xp);
   }
 
-  function highestAchievedMilestone(habitId){
-    const forHabit = achievements.filter(a => a.habitId === habitId);
-    if(!forHabit.length) return null;
-    return Math.max(...forHabit.map(a => a.milestone));
+  // Tied to the habit's CURRENT unbroken streak, not the lifetime "wall" of
+  // milestones ever reached (that's a separate, deliberately permanent
+  // record - see buildMilestoneWallHtml/achievements). This is the mini
+  // badge shown next to each habit in the Today checklist, so it resets to
+  // nothing the moment a streak breaks, then climbs back up as a new streak
+  // re-crosses each milestone - matching the toast celebration's own
+  // per-streak behavior rather than showing a stale best-ever number.
+  function highestAchievedMilestone(currentStreak){
+    if(!currentStreak) return null;
+    const crossed = getDisplayMilestones(currentStreak).filter(m => m <= currentStreak);
+    return crossed.length ? crossed[crossed.length - 1] : null;
   }
 
   function freqLabelFor(h){
@@ -2108,9 +2115,9 @@
         const done = !!stats.dayCheckins[h.id];
         const hStreak = computeHabitStreak(h);
         const streakClass = hStreak.current > 0 ? '' : 'zero';
-        const topMilestone = highestAchievedMilestone(h.id);
+        const topMilestone = highestAchievedMilestone(hStreak.current);
         const badgeHtml = topMilestone
-          ? `<span class="milestone-badge-mini" title="Best milestone reached: ${topMilestone}">${topMilestone}</span>`
+          ? `<span class="milestone-badge-mini" title="Current streak has reached the ${topMilestone}-day milestone">${topMilestone}</span>`
           : '';
         const row = document.createElement('div');
         row.className = 'checklist-item';
