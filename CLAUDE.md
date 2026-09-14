@@ -252,6 +252,16 @@ cover the other.
    habit with a lifetime-best 10-day streak that's currently broken correctly shows the "10" badge
    on its wall but no mini badge at all in the checklist. If asked to change how milestones behave,
    check which of these two the request is actually about before touching either.
+9. **`openHabitDetail()`'s metric-log handlers (`metricAddBtn`, its edit-log row click, and
+   `.metric-log-delete`) are a second real instance of the gotcha #6 stale-reference pattern** —
+   found when checking a metric-tracked habit off (which auto-opens this same modal per
+   `toggleCheckin`'s `{focusMetricLog:true}` call) let the `checkins` write's sync echo land
+   *while the modal was already open*, reassigning `habits` and orphaning the `h` these handlers
+   had closed over. Logging a run right after auto-opening could silently fail to save the first
+   time and only work the second, once the modal had re-opened against the fresh object. Fixed
+   the same way as `buildHabitRow()`: every handler now re-looks-up `habits.find(x => x.id ===
+   habitId)` at click time instead of using the `h` captured when the modal opened. Any other
+   modal that stays open across an async gap and mutates a captured item needs the same check.
 
 ## Deployment
 

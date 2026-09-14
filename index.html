@@ -1946,8 +1946,20 @@
       }
       const addBtn = document.getElementById('metricAddBtn');
       const cancelEditBtn = document.getElementById('metricCancelEditBtn');
+      // Every handler below re-looks-up the habit fresh from the live
+      // `habits` array at click time rather than closing over `h` - the
+      // Firestore sync listener can reassign `habits` (e.g. the checkins
+      // write from checking this habit off, which auto-opens this very
+      // modal, echoing back moments later) while this modal sits open,
+      // orphaning `h`. Mutating an orphaned object gets silently discarded
+      // on the next saveHabits() - see CLAUDE.md gotcha #6. This was a real
+      // bug: logging a run right after auto-opening from a checkbox tap
+      // could silently fail to save the first time, only to work the
+      // second time once the modal had re-opened against the fresh object.
       if(addBtn){
         addBtn.addEventListener('click', ()=>{
+          const live = habits.find(x => x.id === habitId);
+          if(!live) return;
           const timeInput = document.getElementById('metricValueInput');
           const distInput = document.getElementById('metricDistanceInput');
           const dateInput = document.getElementById('metricDateInput');
@@ -1957,12 +1969,12 @@
           const distRaw = distInput.value.trim();
           const distance = distRaw === '' ? null : parseFloat(distRaw);
           const entryDate = dateInput.value || fmtDateKey(new Date());
-          if(!h.logs) h.logs = [];
+          if(!live.logs) live.logs = [];
           if(editingMetricLogId !== null){
-            const log = h.logs.find(l => l.id === editingMetricLogId);
+            const log = live.logs.find(l => l.id === editingMetricLogId);
             if(log){ log.date = entryDate; log.minutes = minutes; log.distance = distance; }
           } else {
-            h.logs.push({id: Date.now(), date: entryDate, minutes, distance});
+            live.logs.push({id: Date.now(), date: entryDate, minutes, distance});
           }
           editingMetricLogId = null;
           saveHabits();
@@ -1977,8 +1989,10 @@
       }
       document.querySelectorAll('#habitDetailBody .metric-log-row[data-edit-log]').forEach(row=>{
         row.addEventListener('click', ()=>{
+          const live = habits.find(x => x.id === habitId);
+          if(!live) return;
           const logId = parseInt(row.getAttribute('data-edit-log'), 10);
-          const log = (h.logs || []).find(l => l.id === logId);
+          const log = (live.logs || []).find(l => l.id === logId);
           if(!log) return;
           editingMetricLogId = logId;
           document.getElementById('metricValueInput').value = formatDecimalMinutesAsTime(habitLogMinutes(log));
@@ -1993,8 +2007,10 @@
       document.querySelectorAll('#habitDetailBody .metric-log-delete').forEach(btn=>{
         btn.addEventListener('click', (e)=>{
           e.stopPropagation();
+          const live = habits.find(x => x.id === habitId);
+          if(!live) return;
           const logId = parseInt(btn.getAttribute('data-log'), 10);
-          h.logs = (h.logs || []).filter(l => l.id !== logId);
+          live.logs = (live.logs || []).filter(l => l.id !== logId);
           if(editingMetricLogId === logId) editingMetricLogId = null;
           saveHabits();
           openHabitDetail(habitId);
@@ -4141,7 +4157,17 @@
       if(status && status.textContent === 'Uploading photo…') status.textContent = '';
     }catch(err){
       console.error('Note photo upload failed', err);
-      if(status){ status.classList.add('error'); status.textContent = 'Photo upload failed — check your connection and try again.'; }
+      if(status){
+        status.classList.add('error');
+        // Surfaces the actual cause instead of a generic message - a
+        // permissions error (missing the noteImages Storage rule) looks
+        // completely different from a real connectivity failure, and
+        // guessing "check your connection" for the former just sends
+        // whoever's debugging it down the wrong path.
+        status.textContent = err && err.code === 'storage/unauthorized'
+          ? 'Photo upload blocked by Storage permissions — the noteImages rule may be missing in the Firebase Console.'
+          : `Photo upload failed (${(err && err.code) || (err && err.message) || 'unknown error'}) — check your connection and try again.`;
+      }
     }
   }
 
