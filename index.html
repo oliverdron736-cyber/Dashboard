@@ -1795,6 +1795,10 @@
 
   function isScheduled(habit, date){
     if(!habit.active) return false;
+    // Without this, a new habit would retroactively count as scheduled-but-missed on
+    // every past day back to TRACKING_START_DATE. Habits without createdAt (added
+    // before this field existed) keep their full existing history untouched.
+    if(habit.createdAt && fmtDateKey(date) < habit.createdAt) return false;
     if(habit.scheduleType === 'date') return isDateScheduleMatch(habit, date);
     return !!scheduleDaysForDate(habit, date)[dayKeyForDate(date)];
   }
@@ -3620,7 +3624,7 @@
       if(!name) { nameInput.focus(); return; }
       const xp = parseInt(xpInput.value, 10) || 0;
       const id = 'h' + Date.now();
-      const habit = {id, name, xp, active:true, scheduleType:newScheduleType};
+      const habit = {id, name, xp, active:true, scheduleType:newScheduleType, createdAt:todayKey};
       if(newScheduleType === 'date'){
         habit.anchorDate = newAnchorDate || todayKey;
         habit.repeatFrequency = newRepeatFrequency;

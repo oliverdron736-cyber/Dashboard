@@ -1,4 +1,4 @@
-const CACHE_NAME = 'habit-tracker-v42';
+const CACHE_NAME = 'habit-tracker-v43';
 const ASSETS = [
   './',
   './index.html',

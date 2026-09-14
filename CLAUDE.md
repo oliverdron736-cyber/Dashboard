@@ -45,11 +45,21 @@ localStorage. Fields: `habits`, `checkins`, `prefs`, `achievements`, `notes`, `f
 
 - `habits`: `[{id, name, xp, active, scheduleType, days, anchorDate, repeatFrequency,
   trackMetric, metricUnit, logs:[{id,date,minutes,distance}], scheduleHistory:[{effectiveUntil,
-  days}]}]`
+  days}], createdAt}]`
   - `scheduleHistory` is important: when a habit's weekly `days` change, the *old* days get
     archived here with the date the change took effect. Streak/calendar logic checks this
     history so changing a habit's schedule never retroactively breaks past streaks. See
     `scheduleDaysForDate()` and `isScheduled()`.
+  - `createdAt` (a `YYYY-MM-DD` string, same format/comparability as `anchorDate` and
+    `scheduleHistory[].effectiveUntil`) stamps the day a habit was added, set once in the
+    `addHabitBtn` click handler. `isScheduled()` treats any date before it as "not scheduled,"
+    which is what stops a brand-new habit from retroactively counting as scheduled-but-missed on
+    every past day back to `TRACKING_START_DATE`, dragging down the Monthly view's completion %
+    for days it didn't exist yet. Habits created before this field existed have no `createdAt` at
+    all — `isScheduled()` only applies the cutoff `if(habit.createdAt && ...)`, so old habits keep
+    their full existing history untouched. `TRACKING_START_DATE` is a separate, global,
+    non-per-habit cutoff ("no real data before this date at all") — the two checks are
+    independent and both apply.
 - `checkins`: `{ "YYYY-MM-DD": { habitId: true } }`
 - `notes`: `[{id, title, content (HTML, rich text), updatedAt, folderId, order}]`
   - Photos inside a note live as plain `<img src="...">` tags in `content` pointing at
@@ -262,6 +272,19 @@ cover the other.
    the same way as `buildHabitRow()`: every handler now re-looks-up `habits.find(x => x.id ===
    habitId)` at click time instead of using the `h` captured when the modal opened. Any other
    modal that stays open across an async gap and mutates a captured item needs the same check.
+10. **A habit has no concept of "when it started" unless it has `createdAt`.** Before this field
+    existed, `isScheduled()` only checked `scheduleDaysForDate()`/`scheduleHistory` — it had no way
+    to know a habit didn't exist yet on some past date, so a brand-new weekly habit was
+    retroactively "scheduled" (and therefore counted as missed) on every day back to the global
+    `TRACKING_START_DATE` constant, dragging down Monthly view completion % for days before the
+    habit was ever added. Fixed by stamping `createdAt: todayKey` on new habits in the
+    `addHabitBtn` handler and adding a cutoff at the top of `isScheduled()`. Since `isScheduled()`
+    is the shared function `dayStats()`, `computeHabitStreak()`, and `scanHabitMilestoneCrossings()`
+    all call, the fix cascades automatically to Monthly view, streaks, and milestones — no need to
+    patch those callers separately. The cutoff only applies `if(habit.createdAt && ...)`, so
+    existing habits (which have no `createdAt`) are completely unaffected. If another new
+    habit-level field ever needs "since when does this apply" semantics, this is the pattern to
+    follow rather than inventing a second global cutoff constant.
 
 ## Deployment
 
