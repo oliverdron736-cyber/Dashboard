@@ -1803,6 +1803,33 @@
     return !!scheduleDaysForDate(habit, date)[dayKeyForDate(date)];
   }
 
+  // Habits added before createdAt existed have no start date, so they still count
+  // as missed on every day back to TRACKING_START_DATE. Infer the earliest date
+  // each one is *known* to have existed - its first check-in, its first archived
+  // schedule change, or its anchor date - and fall back to today when there's no
+  // evidence at all. Runs once: after every habit has a createdAt it does nothing.
+  function backfillHabitCreatedAt(){
+    const missing = habits.filter(h => !h.createdAt);
+    if(!missing.length) return;
+    const earliestCheckin = {};
+    Object.keys(checkins).forEach(dateKey=>{
+      const day = checkins[dateKey] || {};
+      Object.keys(day).forEach(habitId=>{
+        if(!day[habitId]) return;
+        if(!earliestCheckin[habitId] || dateKey < earliestCheckin[habitId]) earliestCheckin[habitId] = dateKey;
+      });
+    });
+    const todayKey = fmtDateKey(new Date());
+    missing.forEach(h=>{
+      const known = [earliestCheckin[h.id], h.anchorDate]
+        .concat((h.scheduleHistory || []).map(e => e && e.effectiveUntil))
+        .filter(Boolean)
+        .sort();
+      h.createdAt = known.length ? known[0] : todayKey;
+    });
+    saveHabits();
+  }
+
   function dayStats(date){
     if(startOfDay(date) < TRACKING_START_DATE){
       return {scheduled: [], possible: 0, earned: 0, completed: 0, pct: null, dayCheckins: {}};
@@ -3324,7 +3351,7 @@
         row.className = 'checklist-item';
         row.innerHTML = `
           <button class="chk ${done?'checked':''}" data-habit="${h.id}" aria-label="Toggle ${escapeHtml(h.name)}">${chkIcon(done)}</button>
-          <div class="item-name ${done?'done':''}">${escapeHtml(h.name)}</div>
+          <div class="item-name ${done?'done':''}" data-habit="${h.id}" role="button" tabindex="0">${escapeHtml(h.name)}</div>
           <div class="item-meta"><span class="xp">${h.xp} XP</span></div>
         `;
         listEl.appendChild(row);
@@ -3332,6 +3359,12 @@
       listEl.querySelectorAll('.chk').forEach(btn=>{
         btn.addEventListener('click', ()=>{
           toggleCheckin(btn.getAttribute('data-habit'), fmtDateKey(selectedDate));
+        });
+      });
+      listEl.querySelectorAll('.item-name').forEach(el=>{
+        el.addEventListener('click', ()=> openHabitEditModal(el.getAttribute('data-habit')));
+        el.addEventListener('keydown', e=>{
+          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openHabitEditModal(el.getAttribute('data-habit')); }
         });
       });
     }
@@ -3549,6 +3582,7 @@
         const live = current(); if(!live) return;
         live.createdAt = e.target.value || null;
         saveHabits(); renderToday();
+        if(currentTab === 'monthly') renderMonthly();
       });
     }
 
@@ -3800,6 +3834,7 @@
       }
 
       updateSyncSettingsUI();
+      if(currentUser) backfillHabitCreatedAt();
       habits.forEach(h => syncHabitMilestones(h, {silent:true}));
       renderToday();
       renderHabitManagement();

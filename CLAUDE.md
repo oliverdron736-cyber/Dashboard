@@ -160,7 +160,9 @@ cover the other.
   habit's own streak (`computeHabitStreak()`).
 - **Monthly tab:** calendar grid, day-detail panel, color-coded completion (green/amber/red are
   meaningful status colors — not the theme's accent color, deliberately untouched by the
-  redesign)
+  redesign). Tapping a habit's name in the day-detail panel opens that habit's Edit modal
+  (`openHabitEditModal`) — note this differs from the Today checklist, where tapping a name opens
+  the read-only detail/stats modal (`openHabitDetail`) instead.
 - **Notes tab:** folders (Level 1) > notes-in-folder (Level 2) > editor (Level 3). Rich text via
   a `contenteditable` div. Formatting lives behind a floating "Aa" pill (bottom-left in the
   editor) that expands into a single horizontal row of tools to its right: Bold, Italic,
@@ -286,17 +288,19 @@ cover the other.
     existing habits (which have no `createdAt`) are completely unaffected. If another new
     habit-level field ever needs "since when does this apply" semantics, this is the pattern to
     follow rather than inventing a second global cutoff constant.
-    - **This backward-compatibility is exactly why a habit created *before* this fix shipped keeps
-      showing up on past days: it has no `createdAt` at all, so the cutoff never applies to it.**
-      There's no way to infer the "real" creation date for such a habit after the fact, and this
-      app has no server-side migration step (no build/deploy hook — it's a static file), so the fix
-      can't backfill existing data on its own. Instead, `buildHabitRow()`'s edit UI (in the habit
-      Edit modal, opened from "Manage habits") has a "Started" date input bound to
-      `data-field="createdAt"`, letting the user set/correct this per habit themselves — clearing
-      it sets `createdAt` back to `null` (full history counts again, the pre-fix behavior). If a
-      user reports a specific old habit still counting on days before it actually started, point
-      them at this field rather than trying to fix it in code — the code fix already ships correctly
-      for anything created going forward.
+    - **That backward-compatibility initially meant habits created *before* this shipped kept
+      counting on past days** (no `createdAt` → cutoff never applies). Fixed by
+      `backfillHabitCreatedAt()`, called from the `onAuthStateChanged` handler once data has
+      loaded. For each habit missing `createdAt` it takes the earliest date the habit is *known*
+      to have existed — its first check-in, its first `scheduleHistory[].effectiveUntil`, or its
+      `anchorDate` — and falls back to today when there's no evidence at all. It saves once and
+      then no-ops forever (habits all have the field), so it's safe to run on every app open.
+    - The fallback-to-today branch is the one lossy case: a habit that existed for a while but was
+      *never once* checked in gets stamped today, which erases its past misses. That's why
+      `buildHabitRow()` also exposes a "Started" date input (`data-field="createdAt"`) in the habit
+      Edit modal — it's the correction path for a bad guess, not the primary mechanism. Clearing it
+      sets `createdAt` back to `null` (full history counts again, the pre-fix behavior). Don't
+      remove that field on the grounds that the backfill "handles it" — the backfill guesses.
 
 ## Deployment
 
