@@ -52,8 +52,8 @@ localStorage. Fields: `habits`, `checkins`, `prefs`, `achievements`, `notes`, `f
     `scheduleDaysForDate()` and `isScheduled()`.
   - `createdAt` (a `YYYY-MM-DD` string, same format/comparability as `anchorDate` and
     `scheduleHistory[].effectiveUntil`) stamps the day a habit was added, set once in the
-    `addHabitBtn` click handler and editable afterward via a "Started" date field in the habit
-    Edit modal (`buildHabitRow()`, `data-field="createdAt"`). `isScheduled()` treats any date before it as "not scheduled,"
+    `addHabitBtn` click handler. It is deliberately **not** user-editable — there's no UI for it
+    anywhere; it's recorded at creation and left alone. `isScheduled()` treats any date before it as "not scheduled,"
     which is what stops a brand-new habit from retroactively counting as scheduled-but-missed on
     every past day back to `TRACKING_START_DATE`, dragging down the Monthly view's completion %
     for days it didn't exist yet. Habits created before this field existed have no `createdAt` at
@@ -296,11 +296,11 @@ cover the other.
       `anchorDate` — and falls back to today when there's no evidence at all. It saves once and
       then no-ops forever (habits all have the field), so it's safe to run on every app open.
     - The fallback-to-today branch is the one lossy case: a habit that existed for a while but was
-      *never once* checked in gets stamped today, which erases its past misses. That's why
-      `buildHabitRow()` also exposes a "Started" date input (`data-field="createdAt"`) in the habit
-      Edit modal — it's the correction path for a bad guess, not the primary mechanism. Clearing it
-      sets `createdAt` back to `null` (full history counts again, the pre-fix behavior). Don't
-      remove that field on the grounds that the backfill "handles it" — the backfill guesses.
+      *never once* checked in gets stamped today, which erases its past misses. A "Started" date
+      input briefly existed in the habit Edit modal as a manual correction for this, but **the user
+      asked for it to be removed** — a start date should be recorded at creation and never typed in
+      by hand. Don't re-add it. If a start date ever does need correcting, the route is Settings >
+      Backup & Restore (edit `createdAt` in the exported JSON, then restore), not a new field.
 
 ## Deployment
 

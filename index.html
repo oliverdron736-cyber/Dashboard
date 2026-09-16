@@ -3487,10 +3487,6 @@
             <option value="yearly" ${h.repeatFrequency==='yearly'?'selected':''}>Yearly</option>
           </select>
         </div>
-        <div class="habit-started-row" style="display:flex; gap:8px; align-items:center; width:100%; margin-top:6px;">
-          <label style="font-size:12px; color:var(--muted);" title="Days before this date won't count as scheduled for this habit, so they won't drag down past completion stats or streaks.">Started</label>
-          <input type="date" class="date-input" data-field="createdAt" value="${h.createdAt || ''}"/>
-        </div>
       </div>
       <div class="habit-metric-row">
         <label class="active-check">
@@ -3574,15 +3570,6 @@
       repeatSelect.addEventListener('change', e=>{
         const live = current(); if(!live) return;
         live.repeatFrequency = e.target.value; saveHabits(); renderToday();
-      });
-    }
-    const startedInput = row.querySelector('[data-field="createdAt"]');
-    if(startedInput){
-      startedInput.addEventListener('change', e=>{
-        const live = current(); if(!live) return;
-        live.createdAt = e.target.value || null;
-        saveHabits(); renderToday();
-        if(currentTab === 'monthly') renderMonthly();
       });
     }
 
