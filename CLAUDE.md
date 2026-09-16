@@ -52,7 +52,8 @@ localStorage. Fields: `habits`, `checkins`, `prefs`, `achievements`, `notes`, `f
     `scheduleDaysForDate()` and `isScheduled()`.
   - `createdAt` (a `YYYY-MM-DD` string, same format/comparability as `anchorDate` and
     `scheduleHistory[].effectiveUntil`) stamps the day a habit was added, set once in the
-    `addHabitBtn` click handler. `isScheduled()` treats any date before it as "not scheduled,"
+    `addHabitBtn` click handler and editable afterward via a "Started" date field in the habit
+    Edit modal (`buildHabitRow()`, `data-field="createdAt"`). `isScheduled()` treats any date before it as "not scheduled,"
     which is what stops a brand-new habit from retroactively counting as scheduled-but-missed on
     every past day back to `TRACKING_START_DATE`, dragging down the Monthly view's completion %
     for days it didn't exist yet. Habits created before this field existed have no `createdAt` at
@@ -285,6 +286,17 @@ cover the other.
     existing habits (which have no `createdAt`) are completely unaffected. If another new
     habit-level field ever needs "since when does this apply" semantics, this is the pattern to
     follow rather than inventing a second global cutoff constant.
+    - **This backward-compatibility is exactly why a habit created *before* this fix shipped keeps
+      showing up on past days: it has no `createdAt` at all, so the cutoff never applies to it.**
+      There's no way to infer the "real" creation date for such a habit after the fact, and this
+      app has no server-side migration step (no build/deploy hook — it's a static file), so the fix
+      can't backfill existing data on its own. Instead, `buildHabitRow()`'s edit UI (in the habit
+      Edit modal, opened from "Manage habits") has a "Started" date input bound to
+      `data-field="createdAt"`, letting the user set/correct this per habit themselves — clearing
+      it sets `createdAt` back to `null` (full history counts again, the pre-fix behavior). If a
+      user reports a specific old habit still counting on days before it actually started, point
+      them at this field rather than trying to fix it in code — the code fix already ships correctly
+      for anything created going forward.
 
 ## Deployment
 
