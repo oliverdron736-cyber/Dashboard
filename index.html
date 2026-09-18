@@ -3771,6 +3771,21 @@
 
   // ---------- init ----------
   async function init(){
+    // Safari only offers a saved password (and the Face ID prompt that comes
+    // with it) for a login form that's actually visible when it sizes up the
+    // page. Waiting for onAuthStateChanged means loading the Firebase SDK over
+    // the network first, by which point Safari has already decided there's no
+    // form worth filling - so a signed-out visit ends up typed by hand. A
+    // stored email is a synchronous "this container has a session" hint, so
+    // when there isn't one, show the gate now rather than a second from now.
+    // onAuthStateChanged still has the final say either way below.
+    const knownEmail = localStorage.getItem(EMAIL_KEY);
+    if(!knownEmail){
+      document.getElementById('authGate').style.display = 'flex';
+    } else {
+      document.getElementById('loginEmail').value = knownEmail;
+    }
+
     // Seed from whatever's already on this device, used only if this ends up
     // being a brand-new account with nothing in the cloud yet.
     habits = await loadLegacyLocal('habits', defaultHabits);

@@ -107,6 +107,21 @@ with Face ID logs you in without an extra tap on "Log In". This is the standard 
 to detect autofill, since there's no native "autofilled" DOM event. Only the login form got this
 treatment (not signup) since that's the flow this exists for.
 
+That autofill hook is useless if the form isn't on screen when Safari sizes up the page, which is
+why `init()` **shows `#authGate` immediately** when `localStorage` has no `EMAIL_KEY`, instead of
+waiting for `onAuthStateChanged`. Waiting means first pulling the Firebase SDK over the network,
+and by the time that resolves Safari has already decided the page has no login form worth filling
+— so it never offers the saved password or the Face ID prompt, and a signed-out visit gets typed
+by hand. A stored `EMAIL_KEY` is a synchronous "this container has a session" hint: absent, show
+the gate now; present, stay hidden (and prefill the email) so a signed-in load never flashes the
+login screen. `onAuthStateChanged` still sets the real state afterwards either way, so the early
+show is a hint, not a second source of truth — don't delete it as redundant.
+
+This matters most from the **Scriptable widget**, whose `widget.url` opens Safari, a completely
+separate storage container from the installed home-screen app. A login in one is invisible to the
+other, so the widget path always lands signed-out until it's logged in on the Safari side too.
+There is no iOS URL scheme to open an installed home-screen web app directly — don't go looking.
+
 **Firestore security rules currently required (already set up, but here for reference):**
 ```
 rules_version = '2';
