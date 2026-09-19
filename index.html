@@ -1088,6 +1088,11 @@
       </div>
 
       <div class="backup-status error" id="authGateError" style="margin-top:12px;"></div>
+      <div class="backup-status error" id="authStorageWarning" style="display:none; margin-top:12px;">
+        This browser didn't keep anything from your last visit, so it can't remember a login either —
+        that's why you're asked every time. If Safari is in Private Browsing, switch to a normal tab.
+        Otherwise check Settings &rsaquo; Apps &rsaquo; Safari and make sure "Block All Cookies" is off.
+      </div>
     </div>
   </div>
 
@@ -1488,6 +1493,15 @@
   const LS_PREFIX = 'habitTracker_v1_'; // legacy local keys, used only as a one-time migration seed
   const SYNC_CODE_KEY = 'habitTrackerSyncCode'; // legacy - only read once, for migration
   const EMAIL_KEY = 'habitTrackerEmail';
+  const STORAGE_PROBE_KEY = 'habitTrackerStorageProbe'; // see init() - detects storage that doesn't survive between visits
+
+  // Safari can refuse localStorage outright ("Block All Cookies"), where even
+  // reading it throws rather than returning null. Unguarded, that takes the
+  // whole app down before it can render so much as a login form, which is a
+  // worse failure than the lost preference it was reaching for.
+  function safeLocalGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+  function safeLocalSet(key, value){ try{ localStorage.setItem(key, value); }catch(e){} }
+  function safeLocalRemove(key){ try{ localStorage.removeItem(key); }catch(e){} }
   let currentUser = null;
   let docRef = null;
   let unsubscribeSnapshot = null;
@@ -1527,7 +1541,7 @@
 
   // ---------- Firestore sync ----------
   async function migrateOldSyncCodeDataIfPresent(){
-    const oldCode = localStorage.getItem(SYNC_CODE_KEY);
+    const oldCode = safeLocalGet(SYNC_CODE_KEY);
     if(!oldCode) return false;
     try{
       const oldRef = firebase.firestore().collection('synccodes').doc(oldCode);
@@ -1602,7 +1616,7 @@
     const changePasswordToggleBtn = document.getElementById('changePasswordToggleBtn');
     if(!statusText) return;
     if(currentUser){
-      const email = localStorage.getItem(EMAIL_KEY) || 'your account';
+      const email = safeLocalGet(EMAIL_KEY) || 'your account';
       statusText.textContent = `Logged in as ${email}.`;
       logoutBtn.style.display = 'inline-block';
       changePasswordToggleBtn.style.display = 'inline-block';
@@ -1638,7 +1652,7 @@
     docRef = firebase.firestore().collection('users').doc(uid);
     await migrateOldSyncCodeDataIfPresent();
     await docRef.set({habits, checkins, prefs, achievements, notes, folders, todos, todoLists});
-    localStorage.setItem(EMAIL_KEY, email.trim());
+    safeLocalSet(EMAIL_KEY, email.trim());
     attachSyncListener();
   }
 
@@ -1658,7 +1672,7 @@
       todos = data.todos || todos;
       todoLists = data.todoLists || todoLists;
     }
-    localStorage.setItem(EMAIL_KEY, email.trim());
+    safeLocalSet(EMAIL_KEY, email.trim());
     attachSyncListener();
   }
 
@@ -1667,7 +1681,7 @@
     firebase.auth().signOut();
     docRef = null;
     currentUser = null;
-    localStorage.removeItem(EMAIL_KEY);
+    safeLocalRemove(EMAIL_KEY);
     updateSyncSettingsUI();
     document.getElementById('authGate').style.display = 'flex';
     document.getElementById('appRoot').style.display = 'none';
@@ -3779,11 +3793,25 @@
     // stored email is a synchronous "this container has a session" hint, so
     // when there isn't one, show the gate now rather than a second from now.
     // onAuthStateChanged still has the final say either way below.
-    const knownEmail = localStorage.getItem(EMAIL_KEY);
+    const knownEmail = safeLocalGet(EMAIL_KEY);
     if(!knownEmail){
       document.getElementById('authGate').style.display = 'flex';
     } else {
       document.getElementById('loginEmail').value = knownEmail;
+    }
+
+    // Firebase keeps the session in storage the browser is free to throw away
+    // (Private Browsing discards it with the tab; "Block All Cookies" refuses
+    // it outright), and when that happens the only symptom is being asked to
+    // log in forever, with nothing on screen explaining why. This marker is
+    // written on every load, so finding it missing means the last visit left
+    // nothing behind - a login couldn't have survived either. A genuine first
+    // visit looks the same once, which is why the warning is worded as a
+    // likelihood rather than a verdict.
+    const storageSurvived = !!safeLocalGet(STORAGE_PROBE_KEY);
+    safeLocalSet(STORAGE_PROBE_KEY, String(Date.now()));
+    if(!storageSurvived){
+      document.getElementById('authStorageWarning').style.display = 'block';
     }
 
     // Seed from whatever's already on this device, used only if this ends up

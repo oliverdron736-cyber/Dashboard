@@ -122,6 +122,21 @@ separate storage container from the installed home-screen app. A login in one is
 other, so the widget path always lands signed-out until it's logged in on the Safari side too.
 There is no iOS URL scheme to open an installed home-screen web app directly — don't go looking.
 
+**When a login won't stick at all, suspect the browser, not the auth code.** Firebase keeps the
+session in storage the browser may discard: Private Browsing throws it away with the tab, and
+Safari's "Block All Cookies" refuses it outright — and either way the only symptom is being
+re-prompted forever with nothing on screen saying why. `init()` writes `STORAGE_PROBE_KEY` on
+every load; finding it missing means the previous visit left nothing behind, so a session couldn't
+have survived either, and `#authStorageWarning` explains that on the login screen. A genuine first
+visit trips it once, which is why it's worded as a likelihood. Distinguish the two causes by how
+fast it recurs: logged out *seconds* later means storage isn't persisting at all, while lasting
+days then lapsing is ITP's ~7-day cap on script-writable storage.
+
+All `localStorage` access outside `loadLegacyLocal()` goes through `safeLocalGet`/`safeLocalSet`/
+`safeLocalRemove`. Under "Block All Cookies" even *reading* localStorage throws, and an unguarded
+read in `init()` took the whole app down before it could render a login form — a far worse failure
+than the preference it was reaching for. Keep new storage access on those helpers.
+
 **Firestore security rules currently required (already set up, but here for reference):**
 ```
 rules_version = '2';
