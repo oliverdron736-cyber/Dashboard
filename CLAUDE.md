@@ -149,12 +149,54 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    match /shared/{mirrorId} {
+      allow read: if true;
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+      allow update: if request.auth != null
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+    }
   }
 }
 ```
 The `synccodes` block is only kept so `migrateOldSyncCodeDataIfPresent()` can pull in data from
 anyone who still has an old sync code saved locally. Safe to remove once confident nobody needs
-it.
+it. The `shared` block is the public mirror, below.
+
+## Public read-only mirror (assistant access)
+
+`shared/{mirrorId}` holds a world-readable copy of the same state that syncs to `users/{uid}`,
+so an AI assistant can read the data over the plain Firestore REST API with no credentials:
+
+```
+https://firestore.googleapis.com/v1/projects/habit-tracker-1fec3/databases/(default)/documents/shared/{mirrorId}
+```
+
+The whole state goes across as **one JSON string** in a `state` field, not as structured
+Firestore fields. That is deliberate: it sidesteps every Firestore nesting restriction the real
+data model would otherwise run into, and it makes the reader's job a single
+`JSON.parse(fields.state.stringValue)` rather than walking Firestore's typed-value envelope.
+
+- `mirrorId` is stored **on the user doc**, not in localStorage, so every device the account is
+  signed in on writes to one mirror rather than each minting a private one. It is a `randomUUID()`
+  with a timestamp-plus-random fallback for browsers without `crypto.randomUUID`.
+- The mirror is driven from `pushField()`, **not** from a second `docRef.onSnapshot()`. A listener
+  would double this doc's read count and would also fire on remote echoes (gotcha 6), so two
+  devices would mirror the same state twice. `pushField()` returns early while
+  `applyingRemoteSnapshot` is true, so only the device that actually made a change mirrors it.
+- `scheduleMirror()` debounces 2s, and `writeMirror()` skips the write when the serialised state is
+  byte-identical to the last one, so checking off four habits in a row costs one mirror write.
+- The `uid` field in the mirror doc is what the security rule checks on write. It stops anyone who
+  learns a mirrorId from overwriting that mirror. It is public, but a uid alone grants nothing.
+- Settings > Assistant access shows the link with a copy button, and states plainly that anyone
+  holding it can read the data.
+
+**Security posture, stated honestly:** the mirror is unguessable, not access-controlled. Anyone
+with the URL reads habits, check-ins, the run log, notes and to-dos. To revoke, delete the
+`shared/{mirrorId}` doc and the `mirrorId` field on the user doc; the app mints a fresh one on next
+load. Nothing else becomes readable — `users/{uid}` stays behind its own rule.
 
 **Firebase Console setup required** (not in code, can't be verified by reading the file):
 Authentication > Sign-in method > Email/Password must be enabled.
