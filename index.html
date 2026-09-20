@@ -1278,6 +1278,16 @@
         </div>
       </div>
 
+      <div class="card">
+        <div class="card-label">Assistant access</div>
+        <div class="hint-text" style="margin-top:0;">A read-only copy of your data sits at this link so an assistant can read your habits without a password. <strong>Anyone holding the link can read it</strong> &mdash; habits, check-ins, run log, notes and to-dos. To switch it off, delete the matching document in the Firestore <code>shared</code> collection.</div>
+        <textarea class="backup-textarea" id="mirrorUrlText" readonly style="min-height:64px;"></textarea>
+        <div class="backup-btn-row">
+          <button class="secondary-btn" id="copyMirrorUrlBtn" type="button">Copy link</button>
+          <span class="backup-status" id="mirrorStatus"></span>
+        </div>
+      </div>
+
       <div class="footer-note">Everything here is calculated live from your habits and daily check-ins — nothing is double-stored.</div>
     </section>
 
@@ -1494,6 +1504,8 @@
   const SYNC_CODE_KEY = 'habitTrackerSyncCode'; // legacy - only read once, for migration
   const EMAIL_KEY = 'habitTrackerEmail';
   const STORAGE_PROBE_KEY = 'habitTrackerStorageProbe'; // see init() - detects storage that doesn't survive between visits
+  const MIRROR_URL_KEY = 'habitTrackerMirrorUrl'; // cached read URL, so Settings can show it before Firestore answers
+  const MIRROR_DOC_BASE = 'https://firestore.googleapis.com/v1/projects/habit-tracker-1fec3/databases/(default)/documents/shared/';
 
   // Safari can refuse localStorage outright ("Block All Cookies"), where even
   // reading it throws rather than returning null. Unguarded, that takes the
@@ -1569,6 +1581,7 @@
     try{
       await docRef.set({[field]: value}, {merge:true});
       hideSaveError();
+      scheduleMirror();
     }catch(e){
       console.error('Firestore save failed for', field, e);
       showSaveError(field);
@@ -1582,6 +1595,91 @@
   function saveFolders(){ pushField('folders', folders); }
   function saveTodos(){ pushField('todos', todos); }
   function saveTodoLists(){ pushField('todoLists', todoLists); }
+
+  // ---------- public read-only mirror ----------
+  // Copies the same state this app already syncs into a world-readable doc at
+  // shared/{mirrorId}, so an assistant can read it with no credentials at all.
+  //
+  // Deliberately hung off pushField rather than a second docRef.onSnapshot:
+  // a listener would double this doc's read count and, worse, would also fire
+  // for remote echoes (see gotcha 6), mirroring the same state twice from two
+  // devices. pushField only runs for genuinely local writes - it returns early
+  // while applyingRemoteSnapshot is true - so the device that made the change
+  // is the one that mirrors it, exactly once.
+  //
+  // mirrorId lives on the user doc, NOT in localStorage, so every device the
+  // account is signed in on writes to one shared mirror instead of minting a
+  // private one each.
+  let mirrorId = null;
+  let mirrorLastJson = null;
+  let mirrorTimer = null;
+
+  function mirrorReadUrl(){ return mirrorId ? MIRROR_DOC_BASE + mirrorId : ''; }
+
+  function refreshMirrorUi(){
+    const box = document.getElementById('mirrorUrlText');
+    if(!box) return;
+    const url = mirrorReadUrl() || safeLocalGet(MIRROR_URL_KEY) || '';
+    box.value = url || 'Sign in to generate your read-only link.';
+  }
+
+  async function ensureMirrorId(){
+    if(mirrorId) return mirrorId;
+    if(!docRef) return null;
+    try{
+      const snap = await docRef.get();
+      const existing = snap.exists ? (snap.data() || {}).mirrorId : null;
+      if(existing){
+        mirrorId = existing;
+      } else {
+        mirrorId = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : 'm-' + Date.now().toString(36) + Math.random().toString(36).slice(2,12);
+        await docRef.set({mirrorId}, {merge:true});
+      }
+      safeLocalSet(MIRROR_URL_KEY, mirrorReadUrl());
+      refreshMirrorUi();
+    }catch(e){
+      console.warn('Mirror id unavailable', e);
+      return null;
+    }
+    return mirrorId;
+  }
+
+  // Debounced: a burst of saves (checking off four habits in a row) writes the
+  // mirror once, not four times.
+  function scheduleMirror(){
+    if(!currentUser) return;
+    clearTimeout(mirrorTimer);
+    mirrorTimer = setTimeout(writeMirror, 2000);
+  }
+
+  async function writeMirror(){
+    if(!currentUser || !docRef) return;
+    if(!await ensureMirrorId()) return;
+    let json;
+    try{
+      json = JSON.stringify({habits, checkins, prefs, achievements, notes, folders, todos, todoLists});
+    }catch(e){
+      console.warn('Mirror: could not serialise state', e);
+      return;
+    }
+    if(json === mirrorLastJson) return;          // nothing actually changed
+    if(json.length > 900000){                    // Firestore's hard limit is 1 MiB per doc
+      console.warn('Mirror skipped: state too large', json.length);
+      return;
+    }
+    try{
+      await firebase.firestore().collection('shared').doc(mirrorId).set({
+        uid: currentUser.uid,                    // the security rule checks this on write
+        updatedAt: new Date().toISOString(),
+        state: json
+      });
+      mirrorLastJson = json;
+    }catch(e){
+      console.warn('Mirror write failed', e && e.message);
+    }
+  }
 
   function attachSyncListener(){
     if(unsubscribeSnapshot) unsubscribeSnapshot();
@@ -3735,6 +3833,24 @@
   });
 
   // ---------- backup / restore ----------
+  refreshMirrorUi();
+  document.getElementById('copyMirrorUrlBtn').addEventListener('click', async ()=>{
+    const box = document.getElementById('mirrorUrlText');
+    const status = document.getElementById('mirrorStatus');
+    const url = mirrorReadUrl() || safeLocalGet(MIRROR_URL_KEY) || '';
+    if(!url){ if(status) status.textContent = 'Not ready yet'; return; }
+    try{
+      await navigator.clipboard.writeText(url);
+    }catch(e){
+      if(box){ box.select(); document.execCommand('copy'); }
+    }
+    if(status){
+      status.textContent = 'Copied';
+      clearTimeout(status._t);
+      status._t = setTimeout(()=>{ status.textContent = ''; }, 2500);
+    }
+  });
+
   document.getElementById('copyBackupBtn').addEventListener('click', async ()=>{
     const box = document.getElementById('backupText');
     const status = document.getElementById('copyStatus');
@@ -3864,6 +3980,7 @@
       }
 
       updateSyncSettingsUI();
+      if(currentUser) scheduleMirror();
       if(currentUser) backfillHabitCreatedAt();
       habits.forEach(h => syncHabitMilestones(h, {silent:true}));
       renderToday();
