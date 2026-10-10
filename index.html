@@ -158,6 +158,12 @@
     border-color: rgba(63,163,255,0.4);
     font-weight:600;
   }
+  /* To-Do and Notes are hidden from the tab bar on request - out of sight, not
+     removed. Every bit of their markup, logic and syncing is untouched: both
+     still save to Firestore and still ride along in Backup & Restore. With no
+     button to reach them their panels simply never become .active, so nothing
+     else needed changing. Delete this one rule to bring both tabs back. */
+  .tab-btn[data-tab="todo"], .tab-btn[data-tab="notes"]{ display:none; }
 
   .tab-panel{ display:none; }
   .tab-panel.active{ display:block; }
