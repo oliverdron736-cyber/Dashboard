@@ -167,17 +167,25 @@ it. The `shared` block is the public mirror, below.
 
 ## Public read-only mirror (assistant access)
 
-`shared/{mirrorId}` holds a world-readable copy of the same state that syncs to `users/{uid}`,
-so an AI assistant can read the data over the plain Firestore REST API with no credentials:
+`shared/{mirrorId}` holds a world-readable copy of **part of** the state that syncs to
+`users/{uid}`, so an AI assistant can read the data over the plain Firestore REST API with no
+credentials:
 
 ```
 https://firestore.googleapis.com/v1/projects/habit-tracker-1fec3/databases/(default)/documents/shared/{mirrorId}
 ```
 
-The whole state goes across as **one JSON string** in a `state` field, not as structured
+The state goes across as **one JSON string** in a `state` field, not as structured
 Firestore fields. That is deliberate: it sidesteps every Firestore nesting restriction the real
 data model would otherwise run into, and it makes the reader's job a single
 `JSON.parse(fields.state.stringValue)` rather than walking Firestore's typed-value envelope.
+
+**`writeMirror()` publishes a deliberate subset: `habits`, `checkins`, `prefs`, `achievements`.**
+`notes`, `folders`, `todos` and `todoLists` are excluded on the user's explicit instruction —
+notes and to-dos are free text that can hold anything, and this doc is readable by anyone with
+the link. They still save to `users/{uid}` and still come through in Backup & Restore; they are
+simply never published. Adding a key to that `JSON.stringify` publishes it, so don't widen it
+casually — and note the Settings card copy names what's included, so it has to change too.
 
 - `mirrorId` is stored **on the user doc**, not in localStorage, so every device the account is
   signed in on writes to one mirror rather than each minting a private one. It is a `randomUUID()`
@@ -194,9 +202,15 @@ data model would otherwise run into, and it makes the reader's job a single
   holding it can read the data.
 
 **Security posture, stated honestly:** the mirror is unguessable, not access-controlled. Anyone
-with the URL reads habits, check-ins, the run log, notes and to-dos. To revoke, delete the
-`shared/{mirrorId}` doc and the `mirrorId` field on the user doc; the app mints a fresh one on next
-load. Nothing else becomes readable — `users/{uid}` stays behind its own rule.
+with the URL reads habits, check-ins, the run log and milestones — but not notes or to-dos, which
+are excluded above. To revoke entirely, delete the `shared/{mirrorId}` doc and the `mirrorId` field
+on the user doc; the app mints a fresh one on next load. Nothing else becomes readable —
+`users/{uid}` stays behind its own rule.
+
+Note the trim only takes effect on the **next mirror write**, which happens the next time the app
+is opened while signed in (`onAuthStateChanged` calls `scheduleMirror()`). Until then the
+previously published doc keeps whatever it last held. A reader cannot be made to forget it either,
+so treat anything already mirrored as having been public.
 
 **Firebase Console setup required** (not in code, can't be verified by reading the file):
 Authentication > Sign-in method > Email/Password must be enabled.

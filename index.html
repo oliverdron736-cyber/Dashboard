@@ -1286,7 +1286,7 @@
 
       <div class="card">
         <div class="card-label">Assistant access</div>
-        <div class="hint-text" style="margin-top:0;">A read-only copy of your data sits at this link so an assistant can read your habits without a password. <strong>Anyone holding the link can read it</strong> &mdash; habits, check-ins, run log, notes and to-dos. To switch it off, delete the matching document in the Firestore <code>shared</code> collection.</div>
+        <div class="hint-text" style="margin-top:0;">A read-only copy of your habit data sits at this link so an assistant can read it without a password. <strong>Anyone holding the link can read it</strong> &mdash; habits, check-ins, your run log and milestones. Notes and to-dos are <strong>not</strong> included. To switch it off, delete the matching document in the Firestore <code>shared</code> collection.</div>
         <textarea class="backup-textarea" id="mirrorUrlText" readonly style="min-height:64px;"></textarea>
         <div class="backup-btn-row">
           <button class="secondary-btn" id="copyMirrorUrlBtn" type="button">Copy link</button>
@@ -1665,7 +1665,13 @@
     if(!await ensureMirrorId()) return;
     let json;
     try{
-      json = JSON.stringify({habits, checkins, prefs, achievements, notes, folders, todos, todoLists});
+      // Deliberately a subset, not the whole state. This doc is world-readable
+      // by anyone holding the link, and notes and to-dos are free-text that can
+      // hold anything, so they stay out of it - along with folders and
+      // todoLists, which only describe them. They still save to users/{uid} and
+      // still come through in Backup & Restore; they are simply never published.
+      // Adding a key here publishes it, so weigh that before extending this.
+      json = JSON.stringify({habits, checkins, prefs, achievements});
     }catch(e){
       console.warn('Mirror: could not serialise state', e);
       return;
